@@ -77,39 +77,42 @@ class AetherCommandRenderer {
     }
 
     async initialize() {
-        this.log('Initializing Renderer...');
-        
-        // 1. Initial State Sync
-        const settings = await window.electronAPI.getSettings();
-        this.updateUIFromSettings(settings);
-        this.lerpAmount = settings.smoothing;
-        this.setupEventListeners(); // Ensure event listeners are set up after UI is updated
+        try {
+            // 1. Initial State Sync
+            const settings = await window.electronAPI.getSettings();
+            this.updateUIFromSettings(settings);
+            this.lerpAmount = settings.smoothing;
+            this.setupEventListeners();
 
-        // Initial activation state
-        const initialState = await (window as any).ipcRenderer.invoke('get-activation-state');
-        this.isActivated = initialState !== false; // Default to true if not exactly false
-        this.updateActivationStatusUI(this.isActivated);
+            // Initial activation state
+            const initialState = await (window.electronAPI as any).getActivationState();
+            this.isActivated = initialState !== false;
+            this.updateActivationStatusUI(this.isActivated);
 
-        // Listen for changes
-        (window as any).ipcRenderer.on('activation-state-changed', (_event: any, state: boolean) => {
-            this.isActivated = state;
-            this.updateActivationStatusUI(state);
-        });
+            // Listen for changes
+            (window.electronAPI as any).onActivationStateChanged((state: boolean) => {
+                this.isActivated = state;
+                this.updateActivationStatusUI(state);
+            });
 
-        // 2. Camera setup
-        const hasCamera = await this.initCamera();
-        if (!hasCamera) {
-            this.log('Critical: No camera found or access denied.');
-            return;
+            // 2. Camera setup
+            const hasCamera = await this.initCamera();
+            if (!hasCamera) {
+                this.log('Critical: Camera initialization failed.');
+                return;
+            }
+
+            // 3. MediaPipe setup
+            await this.tracker.initialize();
+            this.log('Aether-Command: Ready.');
+
+            // 4. Start loop
+            this.isRunning = true;
+            this.loop();
+        } catch (err: any) {
+            this.log(`Initialize Error: ${err.message}`);
+            console.error('Initialization Failed:', err);
         }
-
-        // 3. MediaPipe setup
-        await this.tracker.initialize();
-        this.log('Tracker: Machine Learning ready.');
-
-        // 4. Start loop
-        this.isRunning = true;
-        this.loop();
     }
 
     private updateActivationStatusUI(active: boolean) {
@@ -233,12 +236,20 @@ class AetherCommandRenderer {
             this.video.srcObject = stream;
             
             return new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    this.log('Camera Error: Timeout waiting for video data.');
+                    resolve(false);
+                }, 5000);
+
                 this.video.onloadeddata = () => {
+                    clearTimeout(timeout);
                     this.log('Camera: Video data loaded.');
+                    this.video.play().catch(e => this.log(`Camera: Play failed - ${e.message}`));
                     resolve(true);
                 };
 
                 this.video.onerror = (e) => {
+                    clearTimeout(timeout);
                     this.log('Camera Error: Video element error.');
                     console.error('Video Error:', e);
                     resolve(false);
