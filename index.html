@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether-Hands | Gestural VFX Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-blue: #00e5ff;
+            --glass-bg: rgba(10, 10, 15, 0.7);
+        }
+        body {
+            margin: 0;
+            background: #050508;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            z-index: 100;
+        }
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            margin: 0;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, #fff, var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+        }
+        .instruction {
+            font-size: 0.8rem;
+            color: var(--neon-blue);
+            opacity: 0.8;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        #splash {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #050508 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 1s ease-out;
+        }
+        .btn-start {
+            padding: 15px 40px;
+            background: var(--glass-bg);
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.1);
+        }
+        .btn-start:hover {
+            background: var(--neon-blue);
+            color: #050508;
+            box-shadow: 0 0 30px var(--neon-blue);
+        }
+        #status {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff3366;
+            box-shadow: 0 0 10px #ff3366;
+        }
+        .dot.active {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div id="splash">
+        <h1 style="margin-bottom: 2rem;">AETHER-HANDS</h1>
+        <button class="btn-start" onclick="startApp()">Engage Neural Link</button>
+        <p style="margin-top: 2rem; opacity: 0.4; font-size: 0.8rem;">Requires Webcam Access for Gestural Input</p>
+    </div>
+
+    <div id="ui-overlay">
+        <h1>AETHER-HANDS</h1>
+        <p class="instruction">Pinch: Burst | Move: Trails</p>
+    </div>
+    
+    <div id="status">
+        <div class="dot" id="tracking-dot"></div>
+        <span>SYSTEM STATUS: <span id="status-text">INITIALIZING</span></span>
+    </div>
+
+    <script type="module">
+        import { AetherEngine } from './public/index.js';
+        
+        window.startApp = async () => {
+            const splash = document.getElementById('splash');
+            splash.style.opacity = '0';
+            setTimeout(() => splash.remove(), 1000);
+
+            try {
+                window.engine = new AetherEngine();
+                document.getElementById('tracking-dot').classList.add('active');
+                document.getElementById('status-text').innerText = 'ACTIVE';
+            } catch (err) {
+                document.getElementById('status-text').innerText = 'ERROR: ' + err.message;
+            }
+        };
+    </script>
+</body>
+</html>
