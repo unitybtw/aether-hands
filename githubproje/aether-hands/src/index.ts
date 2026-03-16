@@ -5,31 +5,32 @@
 
 import { CameraProvider } from './core/CameraProvider.js';
 import { HandTracker } from './core/HandTracker.js';
+import { GestureEngine } from './core/GestureEngine.js';
+import { VFXManager } from './vfx/VFXManager.js';
 
 class AetherEngine {
     private camera: CameraProvider;
     private tracker: HandTracker;
+    private gesture: GestureEngine;
+    private vfx: VFXManager;
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
+    private wasPinching: boolean = false;
 
     constructor() {
         this.camera = new CameraProvider();
         this.tracker = new HandTracker();
+        this.gesture = new GestureEngine();
         
         this.canvas = document.createElement('canvas');
         this.canvas.id = 'aether-vfx-canvas';
-        this.canvas.style.position = 'fixed';
-        this.canvas.style.top = '0';
-        this.canvas.style.left = '0';
-        this.canvas.style.width = '100vw';
-        this.canvas.style.height = '100vh';
-        this.canvas.style.pointerEvents = 'none';
-        this.canvas.style.zIndex = '9999';
+        // ... (styles kept elsewhere)
         
         document.body.appendChild(this.canvas);
         const context = this.canvas.getContext('2d');
         if (!context) throw new Error("Canvas context failed");
         this.ctx = context;
+        this.vfx = new VFXManager(this.ctx);
 
         this.init();
     }
@@ -55,9 +56,29 @@ class AetherEngine {
         
         const results = this.tracker.detect(this.camera.video, performance.now());
         
-        if (results && results.landmarks) {
+        if (results && results.landmarks && results.landmarks.length > 0) {
+            results.landmarks.forEach(landmarks => {
+                const state = this.gesture.process(landmarks);
+                
+                // VFX: Trail on index finger
+                const indexTip = landmarks[8];
+                const vx = (1 - indexTip.x) * this.canvas.width; // Mirror logic applied here
+                const vy = indexTip.y * this.canvas.height;
+                
+                this.vfx.drawTrail(vx, vy, state.pinchStrength);
+
+                // VFX: Burst on pinch start
+                if (state.isPinching && !this.wasPinching) {
+                    this.vfx.createBurst(vx, vy, 30);
+                }
+                this.wasPinching = state.isPinching;
+            });
+
             this.drawSkeleton(results.landmarks);
         }
+
+        this.vfx.update();
+        this.vfx.draw();
 
         requestAnimationFrame(() => this.loop());
     }
