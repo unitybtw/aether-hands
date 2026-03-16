@@ -1,15 +1,15 @@
-/**
- * VFXManager.ts
- * Handles WebGL/Canvas visual effects based on gestures.
- */
-
 export class VFXManager {
     private ctx: CanvasRenderingContext2D;
     private particles: any[] = [];
     private MAX_PARTICLES = 150;
+    private baseColor: string = "#00e5ff";
 
     constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
+    }
+
+    public setBaseColor(color: string) {
+        this.baseColor = color;
     }
 
     public update() {
@@ -26,9 +26,12 @@ export class VFXManager {
         this.particles.forEach(p => {
             this.ctx.beginPath();
             this.ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-            this.ctx.fillStyle = `rgba(0, 229, 255, ${p.life})`;
+            this.ctx.fillStyle = (p.color || this.baseColor).replace(")", `, ${p.life})`).replace("rgb", "rgba");
+            if (this.baseColor.startsWith("#")) {
+                this.ctx.fillStyle = `rgba(0, 229, 255, ${p.life})`; // Fallback for HEX
+            }
             this.ctx.shadowBlur = 15;
-            this.ctx.shadowColor = "#00e5ff";
+            this.ctx.shadowColor = this.baseColor;
             this.ctx.fill();
         });
     }
@@ -40,7 +43,8 @@ export class VFXManager {
                 vx: (Math.random() - 0.5) * 10,
                 vy: (Math.random() - 0.5) * 10,
                 size: Math.random() * 5 + 2,
-                life: 1.0
+                life: 1.0,
+                color: this.baseColor
             });
         }
     }
@@ -48,9 +52,11 @@ export class VFXManager {
     public drawTrail(x: number, y: number, strength: number) {
         this.ctx.beginPath();
         this.ctx.arc(x, y, 10 + strength * 20, 0, Math.PI * 2);
-        this.ctx.strokeStyle = `rgba(0, 229, 255, ${0.2 + strength * 0.5})`;
+        this.ctx.strokeStyle = this.baseColor;
+        this.ctx.globalAlpha = 0.2 + strength * 0.5;
         this.ctx.lineWidth = 2;
         this.ctx.stroke();
+        this.ctx.globalAlpha = 1.0;
     }
 
     public drawGlassOverlay(landmarks: any[], width: number, height: number) {

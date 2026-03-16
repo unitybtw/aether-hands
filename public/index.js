@@ -4123,8 +4123,12 @@ var VFXManager = class {
   ctx;
   particles = [];
   MAX_PARTICLES = 150;
+  baseColor = "#00e5ff";
   constructor(ctx) {
     this.ctx = ctx;
+  }
+  setBaseColor(color) {
+    this.baseColor = color;
   }
   update() {
     this.particles = this.particles.filter((p2) => p2.life > 0).slice(0, this.MAX_PARTICLES);
@@ -4138,9 +4142,12 @@ var VFXManager = class {
     this.particles.forEach((p2) => {
       this.ctx.beginPath();
       this.ctx.arc(p2.x, p2.y, p2.size * p2.life, 0, Math.PI * 2);
-      this.ctx.fillStyle = `rgba(0, 229, 255, ${p2.life})`;
+      this.ctx.fillStyle = (p2.color || this.baseColor).replace(")", `, ${p2.life})`).replace("rgb", "rgba");
+      if (this.baseColor.startsWith("#")) {
+        this.ctx.fillStyle = `rgba(0, 229, 255, ${p2.life})`;
+      }
       this.ctx.shadowBlur = 15;
-      this.ctx.shadowColor = "#00e5ff";
+      this.ctx.shadowColor = this.baseColor;
       this.ctx.fill();
     });
   }
@@ -4152,16 +4159,19 @@ var VFXManager = class {
         vx: (Math.random() - 0.5) * 10,
         vy: (Math.random() - 0.5) * 10,
         size: Math.random() * 5 + 2,
-        life: 1
+        life: 1,
+        color: this.baseColor
       });
     }
   }
   drawTrail(x2, y2, strength) {
     this.ctx.beginPath();
     this.ctx.arc(x2, y2, 10 + strength * 20, 0, Math.PI * 2);
-    this.ctx.strokeStyle = `rgba(0, 229, 255, ${0.2 + strength * 0.5})`;
+    this.ctx.strokeStyle = this.baseColor;
+    this.ctx.globalAlpha = 0.2 + strength * 0.5;
     this.ctx.lineWidth = 2;
     this.ctx.stroke();
+    this.ctx.globalAlpha = 1;
   }
   drawGlassOverlay(landmarks, width, height) {
     this.ctx.save();
@@ -4233,6 +4243,8 @@ var AetherEngine = class {
           const indexTip = landmarks[8];
           const vx = (1 - indexTip.x) * this.canvas.width;
           const vy = indexTip.y * this.canvas.height;
+          const hue = Math.floor(vx / this.canvas.width * 360);
+          this.vfx.setBaseColor(`rgb(${this.hslToRgb(hue, 1, 0.5)})`);
           this.vfx.drawTrail(vx, vy, state.pinchStrength);
           if (state.isPinching && !this.wasPinching) {
             this.vfx.createBurst(vx, vy, 30);
@@ -4253,6 +4265,31 @@ var AetherEngine = class {
     this.vfx.update();
     this.vfx.draw();
     requestAnimationFrame(() => this.loop());
+  }
+  emit(event, data) {
+    this.listeners.get(event)?.forEach((cb) => cb(data));
+  }
+  hslToRgb(h2, s2, l2) {
+    h2 /= 360;
+    let r2, g2, b2;
+    if (s2 === 0) {
+      r2 = g2 = b2 = l2;
+    } else {
+      const hue2rgb = (p3, q3, t2) => {
+        if (t2 < 0) t2 += 1;
+        if (t2 > 1) t2 -= 1;
+        if (t2 < 1 / 6) return p3 + (q3 - p3) * 6 * t2;
+        if (t2 < 1 / 2) return q3;
+        if (t2 < 2 / 3) return p3 + (q3 - p3) * (2 / 3 - t2) * 6;
+        return p3;
+      };
+      const q2 = l2 < 0.5 ? l2 * (1 + s2) : l2 + s2 - l2 * s2;
+      const p2 = 2 * l2 - q2;
+      r2 = hue2rgb(p2, q2, h2 + 1 / 3);
+      g2 = hue2rgb(p2, q2, h2);
+      b2 = hue2rgb(p2, q2, h2 - 1 / 3);
+    }
+    return `${Math.round(r2 * 255)}, ${Math.round(g2 * 255)}, ${Math.round(b2 * 255)}`;
   }
   drawSkeleton(hands) {
     this.ctx.save();
