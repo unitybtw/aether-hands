@@ -57,6 +57,8 @@ class AetherCommandRenderer {
     private isRunning: boolean = false;
     private lerpAmount: number = 0.5;
     private frameCount = 0;
+    private lastHandDetectionTime = 0;
+    private gestureTimeout: any = null;
     
     // State to handle debouncing and duplicate triggers
     private lastActionTimes: Map<string, number> = new Map();
@@ -192,21 +194,61 @@ class AetherCommandRenderer {
         }
     }
 
-    private async loop() {
+    async loop() {
         if (!this.isRunning) return;
         
         try {
             const result = this.tracker.detect(this.video, performance.now());
+            
             if (result && result.landmarks && result.landmarks.length > 0) {
-                // We currently use the first hand detected
                 const state = this.gesture.process(result.landmarks[0]);
                 this.handleGestureState(state);
+                this.updateGestureUI(state);
+                this.lastHandDetectionTime = Date.now();
+            } else {
+                // If hand lost for more than 2 seconds, log once
+                if (Date.now() - this.lastHandDetectionTime > 2000 && this.lastHandDetectionTime !== 0) {
+                    this.log('Tracking: Hand lost.');
+                    this.lastHandDetectionTime = 0;
+                    this.updateGestureUI(null);
+                }
             }
         } catch (e) {
             console.error('[Tracker] Error in loop:', e);
         }
-
         requestAnimationFrame(() => this.loop());
+    }
+
+    private updateGestureUI(state: any) {
+        const feedbackEl = document.getElementById('gesture-feedback');
+        const gestureSpan = document.getElementById('last-gesture');
+        
+        if (!feedbackEl || !gestureSpan) return;
+
+        if (!state) {
+            feedbackEl.style.opacity = '0';
+            return;
+        }
+
+        let name = 'NONE';
+        if (state.isPinching) name = 'PINCH 🤏';
+        else if (state.isFist) name = 'FIST ✊';
+        else if (state.isOpenPalm) name = 'PALM ✋';
+        else if (state.swipeDirection) name = `SWIPE ${state.swipeDirection.toUpperCase()}`;
+
+        if (name !== 'NONE') {
+            gestureSpan.innerText = name;
+            feedbackEl.style.opacity = '1';
+            
+            // Clear after 1 second if no new gesture
+            if (this.gestureTimeout) {
+                clearTimeout(this.gestureTimeout);
+            }
+            this.gestureTimeout = setTimeout(() => {
+                feedbackEl.style.opacity = '0';
+                this.gestureTimeout = null;
+            }, 1000);
+        }
     }
 
     private handleGestureState(state: any) {

@@ -28,13 +28,18 @@ export class GestureEngine {
         const pinkyTip = landmarks[20];
         const pinkyPip = landmarks[18];
 
-        // 1. Pinch Detection
-        const dist = this.calculateDistance(thumbTip, indexTip);
-        const isPinching = dist < 0.05;
-        const pinchStrength = Math.max(0, 1 - (dist / 0.1));
+        // Normalization Factor: Use distance from wrist to middle MCP (knuckle) as a proxy for hand scale
+        // Landmark 9 is middle mcp
+        const handScale = this.calculateDistance(wrist, landmarks[9]);
+        const norm = (dist: number) => dist / handScale;
 
-        // 2. Velocity & Directional Swipe (Relative to screen)
-        // Since webcam is mirrored, x changes direction
+        // 1. Pinch Detection (Normalized)
+        const rawPinchDist = this.calculateDistance(thumbTip, indexTip);
+        const normPinchDist = norm(rawPinchDist);
+        const isPinching = normPinchDist < 0.4; // Adaptive threshold
+        const pinchStrength = Math.max(0, 1 - (normPinchDist / 0.8));
+
+        // 2. Velocity & Directional Swipe
         let swipeDirection: 'left' | 'right' | 'up' | 'down' | null = null;
         if (this.lastWristPos) {
             this.velocity = {
@@ -42,17 +47,17 @@ export class GestureEngine {
                 y: wrist.y - this.lastWristPos.y
             };
             
-            const thresh = 0.04; // Swipe speed threshold
-            if (this.velocity.x > thresh) swipeDirection = 'left'; // Mirrored
-            else if (this.velocity.x < -thresh) swipeDirection = 'right'; // Mirrored
+            // Normalize velocity threshold by hand scale too
+            const thresh = 0.4 * handScale; 
+            if (this.velocity.x > thresh) swipeDirection = 'left';
+            else if (this.velocity.x < -thresh) swipeDirection = 'right';
             else if (this.velocity.y < -thresh) swipeDirection = 'up';
             else if (this.velocity.y > thresh) swipeDirection = 'down';
         }
         this.lastWristPos = { x: wrist.x, y: wrist.y };
 
         // 3. Pose Classification (Fist vs Open Palm)
-        // Check if tips are below PIP joints (in Y space, higher Y is "lower" on screen)
-        // Actually, using distance to wrist is safer than pure Y to handle hand rotation
+        // Check if tips are closer to wrist than their respective PIP joints
         const isIndexFolded = this.calculateDistance(indexTip, wrist) < this.calculateDistance(indexPip, wrist);
         const isMiddleFolded = this.calculateDistance(middleTip, wrist) < this.calculateDistance(middlePip, wrist);
         const isRingFolded = this.calculateDistance(ringTip, wrist) < this.calculateDistance(ringPip, wrist);

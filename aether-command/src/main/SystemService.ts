@@ -2,6 +2,7 @@ import { exec } from 'child_process';
 
 export class SystemService {
     public execute(action: string) {
+        console.log(`[SystemService] Executing action: ${action}`);
         switch (action) {
             case 'PLAY_PAUSE':
                 this.runAppleScript('tell application "System Events" to key code 103'); // Media Play/Pause
@@ -37,19 +38,29 @@ export class SystemService {
                 this.runCommand('open -a Spotify');
                 break;
             default:
-                console.log(`[SystemService] Unknown action: ${action}`);
+                console.warn(`[SystemService] Unknown or unmapped action: ${action}`);
         }
     }
 
     private runAppleScript(script: string) {
-        exec(`osascript -e '${script}'`, (err) => {
-            if (err) console.error(`[SystemService] AppleScript Error:`, err);
+        exec(`osascript -e '${script}'`, (err, stdout, stderr) => {
+            if (err) {
+                console.error(`[SystemService] AppleScript Error for [${script}]:`, err.message);
+                if (stderr) console.error(`[SystemService] Stderr:`, stderr);
+            } else {
+                console.log(`[SystemService] AppleScript Success: ${script.substring(0, 30)}...`);
+            }
         });
     }
 
     private runCommand(cmd: string) {
-        exec(cmd, (err) => {
-            if (err) console.error(`[SystemService] Command Error:`, err);
+        exec(cmd, (err, stdout, stderr) => {
+            if (err) {
+                console.error(`[SystemService] Command Error [${cmd}]:`, err.message);
+                if (stderr) console.error(`[SystemService] Stderr:`, stderr);
+            } else {
+                console.log(`[SystemService] Command Success: ${cmd}`);
+            }
         });
     }
 }
