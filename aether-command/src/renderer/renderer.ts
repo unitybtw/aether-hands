@@ -9,21 +9,11 @@ declare global {
       getLoginItem: () => Promise<{ openAtLogin: boolean }>;
       getSettings: () => Promise<any>;
       saveSettings: (settings: any) => void;
+      log: (level: string, msg: string) => void;
+      getActivationState: () => Promise<boolean>;
+      onActivationStateChanged: (callback: (state: boolean) => void) => () => void;
     };
   }
-}
-
-const { ipcRenderer } = require('electron');
-
-// Initialize the API bridge if it hasn't been set up via preload
-if (!window.electronAPI) {
-    window.electronAPI = {
-        triggerGestureAction: (action: string) => ipcRenderer.send('gesture-action', action),
-        setLoginItem: (openAtLogin: boolean) => ipcRenderer.send('set-login-item', openAtLogin),
-        getLoginItem: () => ipcRenderer.invoke('get-login-item'),
-        getSettings: () => ipcRenderer.invoke('get-settings'),
-        saveSettings: (settings: any) => ipcRenderer.send('save-settings', settings)
-    };
 }
 
 // Bridge all console logs to the main process for easier debugging
@@ -33,7 +23,7 @@ console.log = (...args: any[]) => {
         if (a instanceof Error) return `${a.name}: ${a.message}\n${a.stack}`;
         return typeof a === 'object' ? JSON.stringify(a) : a;
     }).join(' ');
-    ipcRenderer.send('renderer-log', 'info', msg);
+    window.electronAPI.log('info', msg);
     originalLog.apply(console, args);
 };
 
@@ -43,7 +33,7 @@ console.error = (...args: any[]) => {
         if (a instanceof Error) return `${a.name}: ${a.message}\n${a.stack}`;
         return typeof a === 'object' ? JSON.stringify(a) : a;
     }).join(' ');
-    ipcRenderer.send('renderer-log', 'error', msg);
+    window.electronAPI.log('error', msg);
     originalError.apply(console, args);
 };
 
@@ -376,8 +366,7 @@ class AetherCommandRenderer {
 
         // Main Process terminal bridge
         try {
-            const { ipcRenderer } = require('electron');
-            ipcRenderer.send('renderer-log', 'info', msg);
+            window.electronAPI.log('info', msg);
         } catch (e) {
             console.log('[Fallback Log]', msg);
         }

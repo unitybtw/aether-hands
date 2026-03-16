@@ -113,7 +113,7 @@ app.whenReady().then(async () => {
 });
 
 // IPC Handlers
-let isKeyHeld = true;
+let isKeyHeld = false;
 let activationPollTimer: NodeJS.Timeout | null = null;
 
 const stopActivationPolling = () => {
@@ -121,7 +121,7 @@ const stopActivationPolling = () => {
         clearInterval(activationPollTimer);
         activationPollTimer = null;
     }
-    isKeyHeld = true;
+    isKeyHeld = true; // Always on when not polling
     mainWindow?.webContents.send('activation-state-changed', true);
 };
 
@@ -141,13 +141,13 @@ const startActivationPolling = () => {
             'Control': 262144
         };
         const mask = maskMap[settings.activationKey] || 1048576;
-
-        const script = `use framework "AppKit"
-        return (current application's NSEvent's modifierFlags() div ${mask} mod 2) > 0`;
-
-        exec(`osascript -e '${script}'`, (err: Error | null, stdout: string) => {
+        
+        exec("osascript -e 'use framework \"AppKit\"' -e \"current application's |NSEvent|'s modifierFlags()\"", (err, stdout) => {
             if (!err) {
-                const held = stdout.trim() === 'true';
+                const flags = parseInt(stdout.trim());
+                if (isNaN(flags)) return;
+
+                const held = (flags & mask) !== 0;
                 if (held !== isKeyHeld) {
                     isKeyHeld = held;
                     mainWindow?.webContents.send('activation-state-changed', held);
@@ -182,7 +182,12 @@ ipcMain.on('gesture-action', (event, action) => {
     systemService.execute(action);
 });
 
-ipcMain.handle('get-settings', () => settingsManager.getSettings());
+ipcMain.handle('get-settings', () => {
+    console.log('[Main] IPC: get-settings requested');
+    const s = settingsManager.getSettings();
+    console.log('[Main] IPC: get-settings responding with:', JSON.stringify(s));
+    return s;
+});
 
 ipcMain.on('save-settings', (event, settings) => {
     settingsManager.updateSettings(settings);

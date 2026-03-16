@@ -4,8 +4,8 @@
   "description": "Mac Menu Bar Gesture Controller",
   "main": "dist/main/main.js",
   "scripts": {
-    "start": "tsc && electron .",
-    "build": "tsc",
+    "start": "npm run build && electron .",
+    "build": "tsc && esbuild src/renderer/renderer.ts --bundle --outfile=dist/renderer/renderer.js --platform=browser --format=iife",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },

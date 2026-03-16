@@ -53,7 +53,6 @@
     </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
         const hud = document.getElementById('hud-container');
         const icon = document.getElementById('hud-icon');
         const label = document.getElementById('hud-label');
@@ -72,7 +71,7 @@
             'LAUNCH_SPOTIFY': { icon: '🎵', label: 'Spotify' }
         };
 
-        ipcRenderer.on('show-hud', (event, action) => {
+        window.electronAPI.onShowHud((action) => {
             const asset = GESTURE_ASSETS[action] || { icon: '✨', label: action };
             icon.innerText = asset.icon;
             label.innerText = asset.label;
