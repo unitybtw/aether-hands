@@ -60,6 +60,9 @@ class AetherEngine {
             results.landmarks.forEach(landmarks => {
                 const state = this.gesture.process(landmarks);
                 
+                // VFX: Glass Overlay
+                this.vfx.drawGlassOverlay(landmarks, this.canvas.width, this.canvas.height);
+
                 // VFX: Trail on index finger
                 const indexTip = landmarks[8];
                 const vx = (1 - indexTip.x) * this.canvas.width; // Mirror logic applied here

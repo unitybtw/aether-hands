@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether-Hands | Gestural VFX Engine</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0a0a0c;
+            color: #00e5ff;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10000;
+        }
+        .instruction {
+            font-size: 14px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        #debug-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-family: monospace;
+            z-index: 10000;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-overlay">
+        <h1>AETHER-HANDS</h1>
+        <p class="instruction">Pinch to trigger bursts | Swipe to move</p>
+    </div>
+    
+    <div id="debug-info">SYSTEM: ACTIVE | TRACKING: ATTACHED</div>
+
+    <!-- Scripts -->
+    <script type="module" src="public/index.js"></script>
+</body>
+</html>

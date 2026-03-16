@@ -50,4 +50,33 @@ export class VFXManager {
         this.ctx.lineWidth = 2;
         this.ctx.stroke();
     }
+
+    public drawGlassOverlay(landmarks: any[], width: number, height: number) {
+        this.ctx.save();
+        this.ctx.beginPath();
+        
+        // Define points for a "hand-shaped" polygon (simplified)
+        // Landmarks: 0 (wrist), 5 (index base), 17 (pinky base)
+        const pts = [0, 5, 9, 13, 17].map(i => ({
+            x: (1 - landmarks[i].x) * width,
+            y: landmarks[i].y * height
+        }));
+
+        this.ctx.moveTo(pts[0].x, pts[0].y);
+        pts.forEach(p => this.ctx.lineTo(p.x, p.y));
+        this.ctx.closePath();
+
+        // Glow effect
+        this.ctx.shadowBlur = 30;
+        this.ctx.shadowColor = "rgba(0, 229, 255, 0.4)";
+        this.ctx.fillStyle = "rgba(0, 229, 255, 0.05)";
+        this.ctx.fill();
+
+        // Border
+        this.ctx.strokeStyle = "rgba(0, 229, 255, 0.2)";
+        this.ctx.lineWidth = 1;
+        this.ctx.stroke();
+
+        this.ctx.restore();
+    }
 }
