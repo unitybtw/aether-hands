@@ -91,12 +91,16 @@ export class AetherEngine {
                     } else {
                         landmarks.forEach((pt: any, i: number) => {
                             const smoothed = this.smoothedHands[hIdx][i];
-                            smoothed.x += (pt.x - smoothed.x) * this.lerpAmount;
-                            smoothed.y += (pt.y - smoothed.y) * this.lerpAmount;
+                            if (smoothed && pt) {
+                                smoothed.x += (pt.x - smoothed.x) * this.lerpAmount;
+                                smoothed.y += (pt.y - smoothed.y) * this.lerpAmount;
+                            }
                         });
                     }
                     
                     const smoothed = this.smoothedHands[hIdx];
+                    if (!smoothed) return;
+
                     const state = this.gesture.process(smoothed);
                     
                     this.vfx.drawGlassOverlay(smoothed, this.canvas.width, this.canvas.height);

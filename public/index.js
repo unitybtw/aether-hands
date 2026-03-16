@@ -4139,25 +4139,34 @@ var VFXManager = class {
     this.baseColor = color;
   }
   update() {
-    this.particles = this.particles.filter((p2) => p2.life > 0).slice(0, this.MAX_PARTICLES);
-    this.particles.forEach((p2) => {
+    for (let i2 = this.particles.length - 1; i2 >= 0; i2--) {
+      const p2 = this.particles[i2];
       p2.x += p2.vx;
       p2.y += p2.vy;
       p2.life -= 0.02;
-    });
+      if (p2.life <= 0) {
+        this.particles.splice(i2, 1);
+      }
+    }
+    if (this.particles.length > this.MAX_PARTICLES) {
+      this.particles.length = this.MAX_PARTICLES;
+    }
   }
   draw() {
+    this.ctx.save();
+    this.ctx.globalCompositeOperation = "lighter";
     this.particles.forEach((p2) => {
+      if (p2.life <= 0) return;
       this.ctx.beginPath();
-      this.ctx.arc(p2.x, p2.y, p2.size * p2.life, 0, Math.PI * 2);
-      this.ctx.fillStyle = (p2.color || this.baseColor).replace(")", `, ${p2.life})`).replace("rgb", "rgba");
+      this.ctx.arc(p2.x, p2.y, Math.max(0, p2.size * p2.life), 0, Math.PI * 2);
+      const alpha = Math.max(0, p2.life).toFixed(2);
+      this.ctx.fillStyle = (p2.color || this.baseColor).replace(")", `, ${alpha})`).replace("rgb", "rgba");
       if (this.baseColor.startsWith("#")) {
-        this.ctx.fillStyle = `rgba(0, 229, 255, ${p2.life})`;
+        this.ctx.fillStyle = `rgba(0, 229, 255, ${alpha})`;
       }
-      this.ctx.shadowBlur = 15;
-      this.ctx.shadowColor = this.baseColor;
       this.ctx.fill();
     });
+    this.ctx.restore();
   }
   createBurst(x2, y2, count = 20) {
     for (let i2 = 0; i2 < count; i2++) {
@@ -4203,8 +4212,10 @@ var VFXManager = class {
         y: p2.y * height
       };
     });
-    this.ctx.moveTo(pts[0].x, pts[0].y);
-    pts.forEach((p2) => this.ctx.lineTo(p2.x, p2.y));
+    if (pts.length > 0 && pts[0]) {
+      this.ctx.moveTo(pts[0].x, pts[0].y);
+      pts.forEach((p2) => this.ctx.lineTo(p2.x, p2.y));
+    }
     this.ctx.closePath();
     this.ctx.fillStyle = "rgba(0, 229, 255, 0.15)";
     this.ctx.fill();
@@ -4281,11 +4292,14 @@ var AetherEngine = class {
           } else {
             landmarks.forEach((pt2, i2) => {
               const smoothed2 = this.smoothedHands[hIdx][i2];
-              smoothed2.x += (pt2.x - smoothed2.x) * this.lerpAmount;
-              smoothed2.y += (pt2.y - smoothed2.y) * this.lerpAmount;
+              if (smoothed2 && pt2) {
+                smoothed2.x += (pt2.x - smoothed2.x) * this.lerpAmount;
+                smoothed2.y += (pt2.y - smoothed2.y) * this.lerpAmount;
+              }
             });
           }
           const smoothed = this.smoothedHands[hIdx];
+          if (!smoothed) return;
           const state = this.gesture.process(smoothed);
           this.vfx.drawGlassOverlay(smoothed, this.canvas.width, this.canvas.height);
           const indexTip = smoothed[8];

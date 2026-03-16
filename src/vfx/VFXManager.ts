@@ -13,27 +13,36 @@ export class VFXManager {
     }
 
     public update() {
-        // Efficiency: Update in place and limit growth
-        this.particles = this.particles.filter(p => p.life > 0).slice(0, this.MAX_PARTICLES);
-        this.particles.forEach(p => {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
             p.x += p.vx;
             p.y += p.vy;
             p.life -= 0.02;
-        });
+            if (p.life <= 0) {
+                this.particles.splice(i, 1);
+            }
+        }
+        if (this.particles.length > this.MAX_PARTICLES) {
+            this.particles.length = this.MAX_PARTICLES; 
+        }
     }
 
     public draw() {
+        this.ctx.save();
+        this.ctx.globalCompositeOperation = "lighter";
         this.particles.forEach(p => {
+            if (p.life <= 0) return;
             this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-            this.ctx.fillStyle = (p.color || this.baseColor).replace(")", `, ${p.life})`).replace("rgb", "rgba");
+            this.ctx.arc(p.x, p.y, Math.max(0, p.size * p.life), 0, Math.PI * 2);
+            
+            const alpha = Math.max(0, p.life).toFixed(2);
+            this.ctx.fillStyle = (p.color || this.baseColor).replace(")", `, ${alpha})`).replace("rgb", "rgba");
             if (this.baseColor.startsWith("#")) {
-                this.ctx.fillStyle = `rgba(0, 229, 255, ${p.life})`; // Fallback for HEX
+                this.ctx.fillStyle = `rgba(0, 229, 255, ${alpha})`;
             }
-            this.ctx.shadowBlur = 15;
-            this.ctx.shadowColor = this.baseColor;
             this.ctx.fill();
         });
+        this.ctx.restore();
     }
 
     public createBurst(x: number, y: number, count: number = 20) {
@@ -86,8 +95,10 @@ export class VFXManager {
             };
         });
 
-        this.ctx.moveTo(pts[0].x, pts[0].y);
-        pts.forEach(p => this.ctx.lineTo(p.x, p.y));
+        if (pts.length > 0 && pts[0]) {
+            this.ctx.moveTo(pts[0].x, pts[0].y);
+            pts.forEach(p => this.ctx.lineTo(p.x, p.y));
+        }
         this.ctx.closePath();
 
         // Use a simple fill instead of shadows
