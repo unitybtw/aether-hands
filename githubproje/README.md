@@ -1,28 +1,32 @@
-# 🌌 Aether Monorepo
+# 🌌 Aether Ecosystem
 
-Welcome to the Aether project collection. This repository contains the next-generation hand-tracking tools and system controllers.
+Welcome to the **Aether** project collection. This repository houses the next generation of gestural control tools, bringing touchless interaction to both the web and the desktop.
 
-## 📂 Projects
+## 📂 Project Structure
 
-### 🧤 [Aether-Hands (Web Engine)](./aether-hands)
-The core gestural engine built with MediaPipe and WebGL. It provides high-performance hand tracking and gesture recognition for web-based applications.
+### 🖥️ [Aether-Command (Native Mac App)](./aether-command)
+A premium, production-ready macOS application that allows you to control your Mac using hand gestures. 
+- **Features**: Glassmorphic Dashboard, Custom Mappings, Sensitivity Controls, Auto-Launch.
+- **Tech Stack**: Electron, TypeScript, MediaPipe, AppleScript.
 
-### 🎮 [Aether-Command (Mac App)](./aether-command)
-A premium macOS application that uses the Aether-Hands engine to control your Mac through gestures. Features a glassmorphic dashboard, customizable mappings, and system-level integration.
+### 🧤 [Aether-Hands (Core Web Engine)](./aether-hands)
+The high-performance gestural recognition engine that powers the world of Aether.
+- **Features**: Ultra-fast hand tracking, WebGL-optimized VFX, raw gesture classification.
+- **Tech Stack**: TypeScript, MediaPipe, WebGL.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
-To explore a specific project, navigate to its directory:
+Choose a project and follow its specific setup instructions:
 
 ```bash
-# For the Mac App
+# To run the Mac App
 cd aether-command
 npm install
 npm start
 
-# For the Web Engine
+# To run the Web Engine
 cd aether-hands
 npm install
 npm run dev
