@@ -25,13 +25,13 @@ export class HandTracker {
         this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
             baseOptions: {
                 modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-                delegate: "CPU"
+                delegate: "GPU"
             },
             runningMode: "VIDEO",
-            numHands: 2,
-            minHandDetectionConfidence: 0.7,
-            minHandPresenceConfidence: 0.7,
-            minTrackingConfidence: 0.7
+            numHands: 1, // Limit to 1 hand for maximum stability as a test
+            minHandDetectionConfidence: 0.8,
+            minHandPresenceConfidence: 0.8,
+            minTrackingConfidence: 0.8
         });
 
         this.isInitialized = true;
@@ -45,12 +45,12 @@ export class HandTracker {
         if (!this.handLandmarker || !this.isInitialized) return null;
 
         /** 
-         * ADAPTIVE OPTIMIZATION:
-         * 1. If no hands detected last frame, check EVERY frame to catch hands Entering.
-         * 2. If hands are present, skip every other frame to save CPU.
+         * AGGRESSIVE OPTIMIZATION:
+         * 1. If no hands, check every frame.
+         * 2. If hands found, skip 3 frames.
          */
         this.frameCount++;
-        if (this.lastHandCount > 0 && this.frameCount % 2 !== 0) {
+        if (this.lastHandCount > 0 && this.frameCount % 3 !== 0) {
             return null; 
         }
 

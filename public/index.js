@@ -4061,13 +4061,14 @@ var HandTracker = class {
     this.handLandmarker = await Uc.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-        delegate: "CPU"
+        delegate: "GPU"
       },
       runningMode: "VIDEO",
-      numHands: 2,
-      minHandDetectionConfidence: 0.7,
-      minHandPresenceConfidence: 0.7,
-      minTrackingConfidence: 0.7
+      numHands: 1,
+      // Limit to 1 hand for maximum stability as a test
+      minHandDetectionConfidence: 0.8,
+      minHandPresenceConfidence: 0.8,
+      minTrackingConfidence: 0.8
     });
     this.isInitialized = true;
     console.log("[Aether Tracker] Hand Landmarker initialized.");
@@ -4077,7 +4078,7 @@ var HandTracker = class {
   detect(video, timestamp) {
     if (!this.handLandmarker || !this.isInitialized) return null;
     this.frameCount++;
-    if (this.lastHandCount > 0 && this.frameCount % 2 !== 0) {
+    if (this.lastHandCount > 0 && this.frameCount % 3 !== 0) {
       return null;
     }
     const results = this.handLandmarker.detectForVideo(video, timestamp);
@@ -4129,7 +4130,7 @@ var GestureEngine = class {
 var VFXManager = class {
   ctx;
   particles = [];
-  MAX_PARTICLES = 150;
+  MAX_PARTICLES = 50;
   baseColor = "#00e5ff";
   constructor(ctx) {
     this.ctx = ctx;
@@ -4254,7 +4255,10 @@ var AetherEngine = class {
   wasPinchingHands = [false, false];
   smoothedHands = [];
   lerpAmount = 0.5;
+  isProcessing = false;
   loop() {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     try {
       const rawResults = this.tracker.detect(this.camera.video, performance.now());
@@ -4263,7 +4267,7 @@ var AetherEngine = class {
         this.lastResults = rawResults;
         this.lastSeenTime = now;
       }
-      if (now - this.lastSeenTime > 1500) {
+      if (now - this.lastSeenTime > 1e3) {
         this.lastResults = null;
         this.smoothedHands = [];
       }
@@ -4271,8 +4275,7 @@ var AetherEngine = class {
       if (!activeResults || !activeResults.landmarks || activeResults.landmarks.length === 0) {
         this.vfx.drawSearchPulse(this.canvas.width, this.canvas.height);
       } else {
-        activeResults.landmarks.forEach((landmarks, hIdx) => {
-          if (hIdx >= 2) return;
+        activeResults.landmarks.slice(0, 1).forEach((landmarks, hIdx) => {
           if (!this.smoothedHands[hIdx]) {
             this.smoothedHands[hIdx] = landmarks.map((p2) => ({ ...p2 }));
           } else {
@@ -4288,17 +4291,10 @@ var AetherEngine = class {
           const indexTip = smoothed[8];
           const vx = (1 - indexTip.x) * this.canvas.width;
           const vy = indexTip.y * this.canvas.height;
-          if (hIdx === 0) {
-            const hue = Math.floor(vx / this.canvas.width * 360);
-            this.vfx.setBaseColor(`rgb(${this.hslToRgb(hue, 1, 0.5)})`);
-          }
           this.vfx.drawTrail(vx, vy, state.pinchStrength);
           if (state.isPinching && !this.wasPinchingHands[hIdx]) {
-            this.vfx.createBurst(vx, vy, 20);
-            this.emit("PINCH_START", { hand: hIdx, x: vx, y: vy });
-            if ("vibrate" in navigator) navigator.vibrate(10);
-          } else if (!state.isPinching && this.wasPinchingHands[hIdx]) {
-            this.emit("PINCH_END", { hand: hIdx });
+            this.vfx.createBurst(vx, vy, 10);
+            this.emit("PINCH_START", { x: vx, y: vy });
           }
           this.wasPinchingHands[hIdx] = state.isPinching;
         });
@@ -4306,10 +4302,12 @@ var AetherEngine = class {
       }
     } catch (error) {
       console.error("[Aether Loop Error]", error);
+    } finally {
+      this.vfx.update();
+      this.vfx.draw();
+      this.isProcessing = false;
+      requestAnimationFrame(() => this.loop());
     }
-    this.vfx.update();
-    this.vfx.draw();
-    requestAnimationFrame(() => this.loop());
   }
   emit(event, data) {
     this.listeners.get(event)?.forEach((cb) => cb(data));

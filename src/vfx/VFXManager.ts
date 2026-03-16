@@ -1,7 +1,7 @@
 export class VFXManager {
     private ctx: CanvasRenderingContext2D;
     private particles: any[] = [];
-    private MAX_PARTICLES = 150;
+    private MAX_PARTICLES = 50;
     private baseColor: string = "#00e5ff";
 
     constructor(ctx: CanvasRenderingContext2D) {

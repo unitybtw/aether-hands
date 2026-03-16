@@ -57,7 +57,12 @@ export class AetherEngine {
     private smoothedHands: any[][] = [];
     private lerpAmount: number = 0.5;
 
+    private isProcessing: boolean = false;
+
     private loop() {
+        if (this.isProcessing) return;
+        this.isProcessing = true;
+
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         try {
@@ -69,10 +74,9 @@ export class AetherEngine {
                 this.lastSeenTime = now;
             }
 
-            // Clear persistence if gone for > 1.5s (reduced from 2s for less ghosting)
-            if (now - this.lastSeenTime > 1500) {
+            if (now - this.lastSeenTime > 1000) {
                 this.lastResults = null;
-                this.smoothedHands = []; // Reset smoothing when hands are lost
+                this.smoothedHands = [];
             }
 
             const activeResults = rawResults || this.lastResults;
@@ -80,9 +84,7 @@ export class AetherEngine {
             if (!activeResults || !activeResults.landmarks || activeResults.landmarks.length === 0) {
                 this.vfx.drawSearchPulse(this.canvas.width, this.canvas.height);
             } else {
-                activeResults.landmarks.forEach((landmarks: any, hIdx: number) => {
-                    if (hIdx >= 2) return; // Support max 2 hands
-
+                activeResults.landmarks.slice(0, 1).forEach((landmarks: any, hIdx: number) => {
                     // Efficient Smoothing
                     if (!this.smoothedHands[hIdx]) {
                         this.smoothedHands[hIdx] = landmarks.map((p: any) => ({...p}));
@@ -97,28 +99,17 @@ export class AetherEngine {
                     const smoothed = this.smoothedHands[hIdx];
                     const state = this.gesture.process(smoothed);
                     
-                    // VFX: Glass Overlay
                     this.vfx.drawGlassOverlay(smoothed, this.canvas.width, this.canvas.height);
 
-                    // VFX: Trail on index finger
                     const indexTip = smoothed[8];
                     const vx = (1 - indexTip.x) * this.canvas.width; 
                     const vy = indexTip.y * this.canvas.height;
                     
-                    // Throttled color update
-                    if (hIdx === 0) {
-                        const hue = Math.floor((vx / this.canvas.width) * 360);
-                        this.vfx.setBaseColor(`rgb(${this.hslToRgb(hue, 1, 0.5)})`);
-                    }
                     this.vfx.drawTrail(vx, vy, state.pinchStrength);
 
-                    // Per-hand pinch state
                     if (state.isPinching && !this.wasPinchingHands[hIdx]) {
-                        this.vfx.createBurst(vx, vy, 20);
-                        this.emit('PINCH_START', { hand: hIdx, x: vx, y: vy });
-                        if ("vibrate" in navigator) navigator.vibrate(10);
-                    } else if (!state.isPinching && this.wasPinchingHands[hIdx]) {
-                        this.emit('PINCH_END', { hand: hIdx });
+                        this.vfx.createBurst(vx, vy, 10);
+                        this.emit('PINCH_START', { x: vx, y: vy });
                     }
                     this.wasPinchingHands[hIdx] = state.isPinching;
                 });
@@ -128,12 +119,12 @@ export class AetherEngine {
 
         } catch (error) {
             console.error("[Aether Loop Error]", error);
+        } finally {
+            this.vfx.update();
+            this.vfx.draw();
+            this.isProcessing = false;
+            requestAnimationFrame(() => this.loop());
         }
-
-        this.vfx.update();
-        this.vfx.draw();
-
-        requestAnimationFrame(() => this.loop());
     }
 
     private emit(event: string, data: any) {
