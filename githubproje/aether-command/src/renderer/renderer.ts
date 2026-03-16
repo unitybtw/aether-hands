@@ -1,15 +1,16 @@
 import { HandTracker } from '../core/HandTracker';
 import { GestureEngine } from '../core/GestureEngine';
 
-// Type definition for our exposed electron API
 declare global {
-    interface Window {
-        electronAPI: {
-            triggerGestureAction: (action: string) => void;
-            setLoginItem: (openAtLogin: boolean) => void;
-            getLoginItem: () => Promise<boolean>;
-        }
-    }
+  interface Window {
+    electronAPI: {
+      triggerGestureAction: (action: string) => void;
+      setLoginItem: (openAtLogin: boolean) => void;
+      getLoginItem: () => Promise<{ openAtLogin: boolean }>;
+      getSettings: () => Promise<any>;
+      saveSettings: (settings: any) => void;
+    };
+  }
 }
 
 class AetherCommandRenderer {
@@ -19,56 +20,86 @@ class AetherCommandRenderer {
     private statusEl: HTMLElement;
     private logEl: HTMLElement;
 
-    private isProcessing: boolean = false;
-    private lastSeenTime: number = 0;
-    private smoothedHands: any[][] = [];
+    private isRunning: boolean = false;
     private lerpAmount: number = 0.5;
-    private wasPinchingHands: boolean[] = [false, false];
-
-    // Added state for new gestures to prevent spamming
-    private wasSwipingLeft: boolean = false;
-    private wasSwipingRight: boolean = false;
-    private wasFist: boolean = false;
-    private wasOpenPalm: boolean = false;
+    
+    // State to handle debouncing and duplicate triggers
+    private lastActionTimes: Map<string, number> = new Map();
+    private readonly DEBOUNCE_MS = 1000;
 
     constructor() {
         this.video = document.getElementById('webcam') as HTMLVideoElement;
-        this.statusEl = document.getElementById('status')!;
+        this.statusEl = document.getElementById('status-overlay')!;
         this.logEl = document.getElementById('log')!;
         
         this.tracker = new HandTracker();
         this.gesture = new GestureEngine();
 
-        this.initCamera();
-        this.setupSettingsUI();
+        this.init();
     }
 
-    private setupSettingsUI() {
-        // Smoothing slider
-        const smoothSlider = document.getElementById('setting-smoothing') as HTMLInputElement;
-        if (smoothSlider) {
-            smoothSlider.addEventListener('input', (e) => {
-                const val = parseFloat((e.target as HTMLInputElement).value);
-                this.lerpAmount = val;
-                this.log(`Tracking Smoothing set to ${val}`);
-            });
-        }
+    private async init() {
+        await this.loadSettings();
+        this.setupEventListeners();
+        await this.initCamera();
+    }
 
-        // Auto-Launch Checkbox
-        const autoLaunchCb = document.getElementById('setting-autolaunch') as HTMLInputElement;
-        if (autoLaunchCb) {
-            // Get initial state
-            window.electronAPI.getLoginItem().then(isEnabled => {
-                autoLaunchCb.checked = isEnabled;
-            });
-
-            // Handle changes
-            autoLaunchCb.addEventListener('change', (e) => {
-                const isEnabled = (e.target as HTMLInputElement).checked;
-                window.electronAPI.setLoginItem(isEnabled);
-                this.log(`Launch at Login set to ${isEnabled}`);
-            });
+    private async loadSettings() {
+        try {
+            const settings = await window.electronAPI.getSettings();
+            this.lerpAmount = settings.smoothing;
+            this.updateUIFromSettings(settings);
+            this.log('Settings synchronized.');
+        } catch (e) {
+            this.log('Failed to load settings.');
         }
+    }
+
+    private updateUIFromSettings(settings: any) {
+        const uiMap: Record<string, any> = {
+            'setting-smoothing': settings.smoothing,
+            'setting-autolaunch': settings.openAtLogin,
+            'map-pinch': settings.mappings.pinch,
+            'map-fist': settings.mappings.fist,
+            'map-palm': settings.mappings.palm,
+            'map-swipe': settings.mappings.swipe
+        };
+
+        for (const [id, value] of Object.entries(uiMap)) {
+            const el = document.getElementById(id) as any;
+            if (el) {
+                if (el.type === 'checkbox') el.checked = value;
+                else el.value = value.toString();
+            }
+        }
+    }
+
+    private setupEventListeners() {
+        const uiElements = ['setting-smoothing', 'setting-autolaunch', 'map-pinch', 'map-fist', 'map-palm', 'map-swipe'];
+        uiElements.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => this.handleSettingChange());
+            }
+        });
+    }
+
+    private handleSettingChange() {
+        const settings = {
+            mappings: {
+                pinch: (document.getElementById('map-pinch') as HTMLSelectElement).value,
+                fist: (document.getElementById('map-fist') as HTMLSelectElement).value,
+                palm: (document.getElementById('map-palm') as HTMLSelectElement).value,
+                swipe: (document.getElementById('map-swipe') as HTMLSelectElement).value,
+            },
+            smoothing: parseFloat((document.getElementById('setting-smoothing') as HTMLInputElement).value),
+            openAtLogin: (document.getElementById('setting-autolaunch') as HTMLInputElement).checked
+        };
+
+        this.lerpAmount = settings.smoothing;
+        window.electronAPI.saveSettings(settings);
+        window.electronAPI.setLoginItem(settings.openAtLogin);
+        this.log('Settings saved.');
     }
 
     private async initCamera() {
@@ -79,125 +110,85 @@ class AetherCommandRenderer {
             this.video.srcObject = stream;
             
             this.video.onloadeddata = async () => {
-                this.statusEl.innerText = "Initializing AI Model...";
+                this.statusEl.innerText = "Initializing Machine Learning...";
                 await this.tracker.initialize();
-                this.statusEl.innerText = "Aether Active";
-                this.statusEl.style.color = "#00ff00";
+                this.statusEl.innerText = "Tracking Active";
+                this.isRunning = true;
                 this.loop();
             };
         } catch (error) {
-            console.error(error);
-            this.statusEl.innerText = "Camera Access Denied";
-            this.statusEl.style.color = "red";
+            this.statusEl.innerText = "Camera Denied";
+            this.statusEl.style.color = "#ff4b2b";
+            this.log('Error: Camera permissions not granted.');
+        }
+    }
+
+    private async loop() {
+        if (!this.isRunning) return;
+
+        try {
+            const result = await this.tracker.detect(this.video);
+            if (result && result.landmarks && result.landmarks.length > 0) {
+                // We currently use the first hand detected
+                const state = this.gesture.process(result.landmarks[0]);
+                this.handleGestureState(state);
+            }
+        } catch (e) {
+            console.error('[Tracker] Error in loop:', e);
+        }
+
+        requestAnimationFrame(() => this.loop());
+    }
+
+    private handleGestureState(state: any) {
+        let action: string | null = null;
+
+        if (state.isPinching) action = (document.getElementById('map-pinch') as HTMLSelectElement).value;
+        else if (state.isFist) action = (document.getElementById('map-fist') as HTMLSelectElement).value;
+        else if (state.isOpenPalm) action = (document.getElementById('map-palm') as HTMLSelectElement).value;
+        else if (state.swipeDirection) {
+            const swipeBase = (document.getElementById('map-swipe') as HTMLSelectElement).value;
+            if (swipeBase === 'SPACES') {
+                action = state.swipeDirection === 'left' ? 'SPACE_LEFT' : 'SPACE_RIGHT';
+            } else {
+                action = swipeBase;
+            }
+        }
+
+        if (action && action !== 'NONE') {
+            this.triggerAction(action);
+        }
+    }
+
+    private triggerAction(action: string) {
+        const now = Date.now();
+        const lastTime = this.lastActionTimes.get(action) || 0;
+
+        // Debounce to prevent multiple triggers for the same continuous gesture
+        if (now - lastTime > this.DEBOUNCE_MS) {
+            window.electronAPI.triggerGestureAction(action);
+            this.lastActionTimes.set(action, now);
+            this.log(`Action: ${action}`);
         }
     }
 
     private log(msg: string) {
-        this.logEl.innerText = msg;
-        console.log(`[Gesture] ${msg}`);
-    }
-
-    private triggerSystem(action: string) {
-        this.log(`Triggering Mac Action: ${action}`);
-        window.electronAPI.triggerGestureAction(action);
-    }
-
-    private loop() {
-        if (this.isProcessing) return;
-        this.isProcessing = true;
-
-        try {
-            const rawResults = this.tracker.detect(this.video, performance.now());
-            const now = performance.now();
-            
-            if (rawResults && rawResults.landmarks && rawResults.landmarks.length > 0) {
-                this.lastSeenTime = now;
-            } else if (now - this.lastSeenTime > 1000) {
-                this.smoothedHands = [];
-            }
-
-            if (rawResults && rawResults.landmarks) {
-                rawResults.landmarks.slice(0, 1).forEach((landmarks: any, hIdx: number) => {
-                    // Smooth tracking
-                    if (!this.smoothedHands[hIdx]) {
-                        this.smoothedHands[hIdx] = landmarks.map((p: any) => ({...p}));
-                    } else {
-                        landmarks.forEach((pt: any, i: number) => {
-                            const smoothed = this.smoothedHands[hIdx][i];
-                            if (smoothed && pt) {
-                                smoothed.x += (pt.x - smoothed.x) * this.lerpAmount;
-                                smoothed.y += (pt.y - smoothed.y) * this.lerpAmount;
-                                smoothed.z += (pt.z - smoothed.z) * this.lerpAmount;
-                            }
-                        });
-                    }
-
-                    const smoothed = this.smoothedHands[hIdx];
-                    if (!smoothed) return;
-
-                    const state = this.gesture.process(smoothed);
-
-                    // Map Gestures to Electron IPC Calls based on UI Selection
-                    
-                    const getMapping = (id: string) => {
-                        const el = document.getElementById(id) as HTMLSelectElement;
-                        return el ? el.value : 'NONE';
-                    };
-
-                    // 1. PINCH
-                    if (state.isPinching && !this.wasPinchingHands[hIdx]) {
-                        const action = getMapping('map-pinch');
-                        if (action !== 'NONE') this.triggerSystem(action);
-                    }
-                    this.wasPinchingHands[hIdx] = state.isPinching;
-
-                    // 2. SWIPES (Left/Right mapped to the same UI dropdown)
-                    const swipeAction = getMapping('map-swipe');
-                    if (swipeAction !== 'NONE') {
-                        if (state.swipeDirection === 'left' && !this.wasSwipingLeft) {
-                            if (swipeAction === 'SPACES') this.triggerSystem('SWIPE_LEFT');
-                            else this.triggerSystem(swipeAction);
-                            this.wasSwipingLeft = true;
-                        } else if (state.swipeDirection !== 'left') {
-                            this.wasSwipingLeft = false;
-                        }
-
-                        if (state.swipeDirection === 'right' && !this.wasSwipingRight) {
-                            if (swipeAction === 'SPACES') this.triggerSystem('SWIPE_RIGHT');
-                            else this.triggerSystem(swipeAction);
-                            this.wasSwipingRight = true;
-                        } else if (state.swipeDirection !== 'right') {
-                            this.wasSwipingRight = false;
-                        }
-                    } else {
-                        this.wasSwipingLeft = false;
-                        this.wasSwipingRight = false;
-                    }
-
-                    // 3. FIST
-                    if (state.isFist && !this.wasFist) {
-                        const action = getMapping('map-fist');
-                        if (action !== 'NONE') this.triggerSystem(action);
-                    }
-                    this.wasFist = state.isFist;
-
-                    // 4. OPEN PALM
-                    if (state.isOpenPalm && !this.wasOpenPalm) {
-                        const action = getMapping('map-palm');
-                        if (action !== 'NONE') this.triggerSystem(action);
-                    }
-                    this.wasOpenPalm = state.isOpenPalm;
-                });
-            }
-
-        } catch (error) {
-            console.error("Loop Error:", error);
-        } finally {
-            this.isProcessing = false;
-            requestAnimationFrame(() => this.loop());
+        const entry = document.createElement('div');
+        entry.style.fontSize = '0.75rem';
+        entry.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+        entry.style.padding = '4px 0';
+        entry.style.color = '#8892b0';
+        entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        
+        this.logEl.prepend(entry);
+        
+        // Keep only last 15 logs
+        while (this.logEl.children.length > 15) {
+            this.logEl.removeChild(this.logEl.lastChild!);
         }
     }
 }
 
-// Start immediately on load
-new AetherCommandRenderer();
+window.addEventListener('DOMContentLoaded', () => {
+    new AetherCommandRenderer();
+});

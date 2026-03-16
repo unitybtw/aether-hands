@@ -23,7 +23,7 @@
     },
     "files": [
       "dist/**/*",
-      "src/renderer/index.html",
+      "src/renderer/*.html",
       "src/assets/**/*"
     ]
   },
