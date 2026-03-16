@@ -4193,6 +4193,7 @@ var AetherEngine = class {
   canvas;
   ctx;
   wasPinching = false;
+  listeners = /* @__PURE__ */ new Map();
   constructor() {
     this.camera = new CameraProvider();
     this.tracker = new HandTracker();
@@ -4235,10 +4236,13 @@ var AetherEngine = class {
           this.vfx.drawTrail(vx, vy, state.pinchStrength);
           if (state.isPinching && !this.wasPinching) {
             this.vfx.createBurst(vx, vy, 30);
+            this.emit("PINCH_START", { x: vx, y: vy });
+          } else if (!state.isPinching && this.wasPinching) {
+            this.emit("PINCH_END", { x: vx, y: vy });
           }
           this.wasPinching = state.isPinching;
         });
-        this.drawSkeleton(results.landmarks);
+        this.drawSkeleton(activeResults.landmarks);
       }
     } catch (error) {
       console.error("[Aether Loop Error]", error);

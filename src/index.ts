@@ -16,6 +16,7 @@ export class AetherEngine {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
     private wasPinching: boolean = false;
+    private listeners: Map<string, Function[]> = new Map();
 
     constructor() {
         this.camera = new CameraProvider();
@@ -81,11 +82,14 @@ export class AetherEngine {
                 // VFX: Burst on pinch start
                 if (state.isPinching && !this.wasPinching) {
                     this.vfx.createBurst(vx, vy, 30);
+                    this.emit('PINCH_START', { x: vx, y: vy });
+                } else if (!state.isPinching && this.wasPinching) {
+                    this.emit('PINCH_END', { x: vx, y: vy });
                 }
                 this.wasPinching = state.isPinching;
             });
 
-            this.drawSkeleton(results.landmarks);
+            this.drawSkeleton(activeResults.landmarks);
         }
 
         } catch (error) {
