@@ -2,6 +2,8 @@
 
 > A premium, high-performance gestural interaction engine for the web.
 
+**[Live Demo 🚀](https://unitybtw.github.io/aether-hands/)**
+
 **Aether-Hands** uses Computer Vision (MediaPipe) to track hand movements and transform them into immersive visual effects and game actions. It's designed for developers who want to add "spell-casting" mechanics or futuristic tactile interfaces to their web projects.
 
 ## ✨ Features
