@@ -55,18 +55,30 @@ class AudioManager {
     private ctx: AudioContext | null = null;
     constructor() {}
     private init() { if (!this.ctx) this.ctx = new AudioContext(); }
-    public playSuccess() {
+    public playSuccess(x = 0.5, y = 0.5) {
         this.init();
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+        const panner = this.ctx.createPanner();
+        
+        panner.panningModel = 'equalpower';
+        panner.positionX.setValueAtTime((x - 0.5) * 2, this.ctx.currentTime);
+        panner.positionY.setValueAtTime((0.5 - y) * 2, this.ctx.currentTime);
+
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880.00, this.ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        // Modal pitch based on vertical position
+        const baseFreq = 440 + (1 - y) * 440; 
+        osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, this.ctx.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
-        osc.connect(gain);
+
+        osc.connect(panner);
+        panner.connect(gain);
         gain.connect(this.ctx.destination);
+
         osc.start();
         osc.stop(this.ctx.currentTime + 0.3);
     }
@@ -97,6 +109,9 @@ class AetherCommandRenderer {
     private lastFrameTime = 0;
     private fpsEl: HTMLElement;
     private confEl: HTMLElement;
+    private stabilityCanvas: HTMLCanvasElement;
+    private stabilityCtx: CanvasRenderingContext2D;
+    private stabilityData: number[] = new Array(50).fill(0);
     private readonly GLOBAL_DEBOUNCE_MS = 800;
     private readonly DEBOUNCE_MS = 1500;
     
@@ -107,11 +122,14 @@ class AetherCommandRenderer {
     private isSuspended: boolean = false;
     private isVisible: boolean = true;
     private readonly SUSPEND_TIMEOUT_MS = 300000;
+    private currentBrightness: number = 0;
 
     constructor() {
         this.video = document.getElementById('webcam') as HTMLVideoElement;
         this.canvas = document.getElementById('vfx-canvas') as HTMLCanvasElement;
         this.ctx = this.canvas.getContext('2d')!;
+        this.stabilityCanvas = document.getElementById('stability-canvas') as HTMLCanvasElement;
+        this.stabilityCtx = this.stabilityCanvas.getContext('2d')!;
         this.statusEl = document.getElementById('status-overlay')!;
         this.logEl = document.getElementById('log')!;
         
@@ -125,6 +143,7 @@ class AetherCommandRenderer {
 
         this.initialize();
         this.setupInactivityListeners();
+        this.setupTiltEffect();
 
         window.electronAPI.onVisibilityChanged((visible) => {
             this.isVisible = visible;
@@ -133,9 +152,73 @@ class AetherCommandRenderer {
     }
 
     private setupInactivityListeners() {
-        window.addEventListener('mousemove', () => this.wakeUp());
+        window.addEventListener('mousemove', (e) => {
+            this.wakeUp();
+        });
         window.addEventListener('keydown', () => this.wakeUp());
         window.addEventListener('click', () => this.wakeUp());
+    }
+
+    private setupTiltEffect() {
+        document.addEventListener('mousemove', (e) => {
+            if (!this.isVisible) return;
+            const panels = document.querySelectorAll('.panel');
+            const x = (e.clientX / window.innerWidth - 0.5) * 10;
+            const y = (e.clientY / window.innerHeight - 0.5) * 10;
+
+            panels.forEach((panel: any) => {
+                panel.style.transform = `perspective(1000px) rotateX(${-y}deg) rotateY(${x}deg)`;
+            });
+        });
+    }
+
+    private estimateBrightness() {
+        if (!this.video.videoWidth) return;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 40;
+        tempCanvas.height = 30;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return;
+        
+        tempCtx.drawImage(this.video, 0, 0, 40, 30);
+        const data = tempCtx.getImageData(0, 0, 40, 30).data;
+        let brightness = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            brightness += (data[i] + data[i+1] + data[i+2]) / 3;
+        }
+        this.currentBrightness = brightness / (40 * 30);
+    }
+
+    private drawStabilityGraph(stability: number) {
+        if (!this.isVisible) return;
+        this.stabilityData.push(stability);
+        if (this.stabilityData.length > 50) this.stabilityData.shift();
+
+        const w = this.stabilityCanvas.width = this.stabilityCanvas.clientWidth;
+        const h = this.stabilityCanvas.height = this.stabilityCanvas.clientHeight;
+        const ctx = this.stabilityCtx;
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.beginPath();
+        ctx.strokeStyle = this.vfx.baseColor;
+        ctx.lineWidth = 1.5;
+        
+        this.stabilityData.forEach((val, i) => {
+            const x = (i / (this.stabilityData.length - 1)) * w;
+            const y = h - (val * (h * 0.8));
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Gradient Fill
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, this.vfx.baseColor + '33');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fill();
     }
 
     private wakeUp() {
@@ -304,17 +387,30 @@ class AetherCommandRenderer {
         this.vfx.update();
 
         try {
-            const skipRate = this.isVisible ? 1 : 2; // Increased efficiency
+            const skipRate = this.isVisible ? 1 : 2;
             if (this.frameCount % skipRate === 0) {
+                // Adaptive Light Normalization
+                if (this.frameCount % 60 === 0) {
+                    this.estimateBrightness();
+                }
+
                 const result = this.tracker.detect(this.video, performance.now());
                 if (result && result.landmarks && result.landmarks.length > 0) {
                     const handednessInfo = result.handedness?.[0]?.[0] || result.handedness?.[0];
                     const handedness = (handednessInfo as any)?.categoryName || 'Unknown';
                     const confidence = (handednessInfo as any)?.score || 0;
 
-                    if (this.frameCount % 10 === 0) this.confEl.innerText = `CONF: ${(confidence * 100).toFixed(0)}%`;
+                    if (this.frameCount % 10 === 0) {
+                        const lowLight = this.currentBrightness < 50;
+                        const label = lowLight ? 'LOW LIGHT' : 'OK';
+                        this.confEl.innerText = `CONF: ${(confidence * 100).toFixed(0)}% [${label}]`;
+                        this.confEl.style.color = lowLight ? '#ff9800' : 'rgba(255,255,255,0.4)';
+                    }
 
-                    const isRequestedHand = (handedness === 'Unknown') || (this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right'));
+                    // Lower confidence requirement in low light to avoid "hand lost" stutter
+                    const minConf = this.currentBrightness < 50 ? 0.5 : 0.7;
+                    const isRequestedHand = (handedness === 'Unknown' || confidence > minConf) && 
+                                           (this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right'));
                     
                     if (isRequestedHand) {
                         window.electronAPI.setTrackingStatus(true);
@@ -331,10 +427,17 @@ class AetherCommandRenderer {
 
                         if (this.isActivated) {
                             const state = this.gesture.process(smoothed);
+                            
+                            // Update Stability (Inversely proportional to velocity)
+                            const vel = Math.sqrt(state.velocity.x ** 2 + state.velocity.y ** 2);
+                            const stability = Math.max(0, 1 - vel * 5);
+                            this.drawStabilityGraph(stability);
+
                             this.handleGestureState(state);
                             this.updateGestureUI(state);
                         } else {
                             this.updateGestureUI(null);
+                            this.drawStabilityGraph(0);
                         }
                     } else {
                         this.updateGestureUI(null);
@@ -442,7 +545,12 @@ class AetherCommandRenderer {
         if (!continuous && now - this.lastGlobalActionTime < this.GLOBAL_DEBOUNCE_MS) return;
         if (now - lastTime > debounce) {
             this.vfx.createBurst(this.canvas.width / 2, this.canvas.height / 2, 30);
-            this.audio.playSuccess();
+            
+            // Spatial Feedback
+            const hx = this.gesture['lastWristPos']?.x || 0.5;
+            const hy = this.gesture['lastWristPos']?.y || 0.5;
+            this.audio.playSuccess(hx, hy);
+            
             window.electronAPI.triggerGestureAction(action);
             this.lastActionTimes.set(action, now);
             this.lastGlobalActionTime = now;

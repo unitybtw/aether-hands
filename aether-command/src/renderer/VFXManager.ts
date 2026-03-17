@@ -4,6 +4,7 @@ export class VFXManager {
     private MAX_PARTICLES = 60;
     public baseColor: string = "#00e5ff";
     private scanlineOffset = 0;
+    private trails: Map<number, { x: number, y: number }[]> = new Map();
 
     constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
@@ -91,6 +92,24 @@ export class VFXManager {
         landmarks.forEach((pt, idx) => {
             const x = (1 - pt.x) * width;
             const y = pt.y * height;
+            
+            // Draw Ghost Trail for Fingertips
+            if ([8, 12, 16, 20].includes(idx)) {
+                let trail = this.trails.get(idx);
+                if (!trail) { trail = []; this.trails.set(idx, trail); }
+                trail.push({ x, y });
+                if (trail.length > 10) trail.shift();
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(trail[0].x, trail[0].y);
+                trail.forEach((t, i) => {
+                    this.ctx.lineTo(t.x, t.y);
+                });
+                this.ctx.strokeStyle = this.hexToRgba(mainColor, 0.3);
+                this.ctx.lineWidth = 1.5;
+                this.ctx.stroke();
+            }
+
             this.ctx.beginPath();
             this.ctx.arc(x, y, 3.5, 0, Math.PI * 2);
             this.ctx.fillStyle = "#fff";
