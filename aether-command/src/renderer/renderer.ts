@@ -380,6 +380,7 @@ class AetherCommandRenderer {
     }
 
     private handleSettingChange() {
+        const oldHand = this.leftHandMode;
         const settings = {
             mappings: {
                 pinch: (document.getElementById('map-pinch') as HTMLSelectElement).value,
@@ -402,6 +403,11 @@ class AetherCommandRenderer {
         this.applyTheme(settings.theme as string);
         this.tracker.updateOptions(settings.sensitivity);
         window.electronAPI.saveSettings(settings);
+
+        if (oldHand !== this.leftHandMode) {
+            this.audio.playSuccess(this.leftHandMode ? 0.2 : 0.8, 0.5);
+            this.log(`System: Hand preference updated to ${this.leftHandMode ? 'LEFT' : 'RIGHT'}`);
+        }
     }
 
     private async initCamera(): Promise<boolean> {
