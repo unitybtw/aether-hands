@@ -112,6 +112,7 @@ class AetherCommandRenderer {
     private stabilityCanvas: HTMLCanvasElement;
     private stabilityCtx: CanvasRenderingContext2D;
     private stabilityData: number[] = new Array(50).fill(0);
+    private gestureLocked: boolean = false;
     private readonly GLOBAL_DEBOUNCE_MS = 800;
     private readonly DEBOUNCE_MS = 1500;
     
@@ -326,6 +327,18 @@ class AetherCommandRenderer {
                 this.handleSettingChange();
             });
         });
+
+        // Log Search
+        const search = document.getElementById('log-search') as HTMLInputElement;
+        if (search) {
+            search.addEventListener('input', () => {
+                const term = search.value.toLowerCase();
+                const entries = this.logEl.querySelectorAll('.log-entry');
+                entries.forEach((entry: any) => {
+                    entry.style.display = entry.innerText.toLowerCase().includes(term) ? 'block' : 'none';
+                });
+            });
+        }
     }
 
     private handleSettingChange() {
@@ -539,11 +552,19 @@ class AetherCommandRenderer {
     }
 
     private triggerAction(action: string, continuous = false) {
+        if (this.gestureLocked && !continuous) return;
+
         const now = Date.now();
         const lastTime = this.lastActionTimes.get(action) || 0;
         const debounce = continuous ? 150 : this.DEBOUNCE_MS;
         if (!continuous && now - this.lastGlobalActionTime < this.GLOBAL_DEBOUNCE_MS) return;
+        
         if (now - lastTime > debounce) {
+            if (!continuous) {
+                this.gestureLocked = true;
+                setTimeout(() => { this.gestureLocked = false; }, 500);
+            }
+
             this.vfx.createBurst(this.canvas.width / 2, this.canvas.height / 2, 30);
             
             // Spatial Feedback
