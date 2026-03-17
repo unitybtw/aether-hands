@@ -65,7 +65,11 @@ export class SystemService {
                 this.runCommand('open -a Terminal');
                 break;
             default:
-                console.warn(`[SystemService] Unknown or unmapped action: ${action}`);
+                if (action.startsWith('SCRIPT:')) {
+                    this.runAppleScript(action.substring(7));
+                } else {
+                    console.warn(`[SystemService] Unknown or unmapped action: ${action}`);
+                }
         }
     }
 
