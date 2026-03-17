@@ -1,8 +1,8 @@
 export class VFXManager {
     private ctx: CanvasRenderingContext2D;
     private particles: any[] = [];
-    private MAX_PARTICLES = 50;
-    private baseColor: string = "#00e5ff";
+    private MAX_PARTICLES = 100;
+    public baseColor: string = "#00e5ff";
 
     constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
@@ -27,19 +27,20 @@ export class VFXManager {
             const alpha = Math.max(0, p.life).toFixed(2);
             this.ctx.beginPath();
             this.ctx.arc(p.x, p.y, Math.max(0, p.size * p.life), 0, Math.PI * 2);
-            this.ctx.fillStyle = `rgba(0, 229, 255, ${alpha})`;
+            this.ctx.fillStyle = this.hexToRgba(this.baseColor, parseFloat(alpha));
             this.ctx.fill();
         });
         this.ctx.restore();
     }
 
     public createBurst(x: number, y: number, count: number = 20) {
+        if (this.particles.length > this.MAX_PARTICLES) return;
         for (let i = 0; i < count; i++) {
             this.particles.push({
                 x, y,
-                vx: (Math.random() - 0.5) * 6,
-                vy: (Math.random() - 0.5) * 6,
-                size: Math.random() * 4 + 2,
+                vx: (Math.random() - 0.5) * 8,
+                vy: (Math.random() - 0.5) * 8,
+                size: Math.random() * 6 + 2,
                 life: 1.0
             });
         }
@@ -59,8 +60,8 @@ export class VFXManager {
 
         // Draw Glow
         this.ctx.shadowBlur = 15;
-        this.ctx.shadowColor = "#00e5ff";
-        this.ctx.strokeStyle = "rgba(0, 229, 255, 0.5)";
+        this.ctx.shadowColor = this.baseColor;
+        this.ctx.strokeStyle = this.hexToRgba(this.baseColor, 0.6);
         this.ctx.lineWidth = 3;
         this.ctx.lineJoin = "round";
         this.ctx.lineCap = "round";
@@ -78,16 +79,31 @@ export class VFXManager {
         });
 
         // Draw Joints
-        this.ctx.fillStyle = "#fff";
-        this.ctx.shadowBlur = 5;
         landmarks.forEach(pt => {
             const x = (1 - pt.x) * width;
             const y = pt.y * height;
             this.ctx.beginPath();
-            this.ctx.arc(x, y, 3, 0, Math.PI * 2);
+            this.ctx.arc(x, y, 4, 0, Math.PI * 2);
+            this.ctx.fillStyle = "#fff";
+            this.ctx.shadowBlur = 10;
+            this.ctx.shadowColor = this.baseColor;
             this.ctx.fill();
         });
 
         this.ctx.restore();
+    }
+
+    private hexToRgba(hex: string, alpha: number): string {
+        let r = 0, g = 0, b = 0;
+        if (hex.length === 4) {
+            r = parseInt(hex[1] + hex[1], 16);
+            g = parseInt(hex[2] + hex[2], 16);
+            b = parseInt(hex[3] + hex[3], 16);
+        } else if (hex.length === 7) {
+            r = parseInt(hex.substring(1, 3), 16);
+            g = parseInt(hex.substring(3, 5), 16);
+            b = parseInt(hex.substring(5, 7), 16);
+        }
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 }
