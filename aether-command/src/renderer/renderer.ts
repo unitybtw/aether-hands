@@ -300,9 +300,12 @@ class AetherCommandRenderer {
 
     private applyTheme(theme: string) {
         document.body.classList.remove('theme-minimal', 'theme-emerald');
-        if (theme !== 'cyberpunk') document.body.classList.add(`theme-${theme}`);
         const colors: any = { 'cyberpunk': '#00e5ff', 'minimal': '#3b82f6', 'emerald': '#10b981' };
-        if (this.vfx) (this.vfx as any).baseColor = colors[theme] || '#00e5ff';
+        const accent = colors[theme] || '#00e5ff';
+
+        if (theme !== 'cyberpunk') document.body.classList.add(`theme-${theme}`);
+        document.documentElement.style.setProperty('--accent-primary', accent);
+        if (this.vfx) (this.vfx as any).baseColor = accent;
     }
 
     private updateActivationUIState(enabled: boolean) {
@@ -337,6 +340,41 @@ class AetherCommandRenderer {
                 entries.forEach((entry: any) => {
                     entry.style.display = entry.innerText.toLowerCase().includes(term) ? 'block' : 'none';
                 });
+            });
+        }
+
+        // Clear Log
+        const clear = document.getElementById('clear-log');
+        if (clear) {
+            clear.addEventListener('click', () => {
+                this.logEl.innerHTML = '<div class="log-entry">Board cleared.</div>';
+            });
+        }
+
+        // Export / Import
+        const exportBtn = document.getElementById('export-settings');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', async () => {
+                const settings = await window.electronAPI.getSettings();
+                await navigator.clipboard.writeText(JSON.stringify(settings, null, 2));
+                this.log('Expert: Config copied to clipboard.');
+                alert('Configuration copied to clipboard!');
+            });
+        }
+
+        const importBtn = document.getElementById('import-settings');
+        if (importBtn) {
+            importBtn.addEventListener('click', async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    const settings = JSON.parse(text);
+                    window.electronAPI.saveSettings(settings);
+                    this.updateUIFromSettings(settings);
+                    this.log('Expert: Config imported from clipboard.');
+                    alert('Configuration imported successfully!');
+                } catch (e) {
+                    alert('Invalid configuration in clipboard.');
+                }
             });
         }
     }
