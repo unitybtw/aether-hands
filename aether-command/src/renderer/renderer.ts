@@ -186,6 +186,7 @@ class AetherCommandRenderer {
             'map-pinch': settings.mappings.pinch,
             'map-fist': settings.mappings.fist,
             'map-palm': settings.mappings.palm,
+            'map-peace': settings.mappings.peace,
             'map-swipe': settings.mappings.swipe,
             'setting-sensitivity': settings.sensitivity,
             'setting-theme': settings.theme,
@@ -233,7 +234,7 @@ class AetherCommandRenderer {
             'setting-smoothing', 'setting-autolaunch', 
             'setting-require-key', 'setting-activation-key',
             'setting-sensitivity', 'setting-theme', 'setting-hand-preference',
-            'map-pinch', 'map-fist', 'map-palm', 'map-swipe'
+            'map-pinch', 'map-fist', 'map-palm', 'map-peace', 'map-swipe'
         ];
         uiElements.forEach(id => {
             const el = document.getElementById(id);
@@ -254,6 +255,7 @@ class AetherCommandRenderer {
                 pinch: (document.getElementById('map-pinch') as HTMLSelectElement).value,
                 fist: (document.getElementById('map-fist') as HTMLSelectElement).value,
                 palm: (document.getElementById('map-palm') as HTMLSelectElement).value,
+                peace: (document.getElementById('map-peace') as HTMLSelectElement).value,
                 swipe: (document.getElementById('map-swipe') as HTMLSelectElement).value,
             },
             smoothing: parseFloat((document.getElementById('setting-smoothing') as HTMLInputElement).value),
@@ -423,6 +425,7 @@ class AetherCommandRenderer {
         if (state.isPinching) name = 'PINCH 🤏';
         else if (state.isFist) name = 'FIST ✊';
         else if (state.isOpenPalm) name = 'PALM ✋';
+        else if (state.isPeace) name = 'PEACE ✌️';
         else if (state.swipeDirection) name = `SWIPE ${state.swipeDirection.toUpperCase()}`;
 
         if (name !== 'NONE') {
@@ -446,6 +449,7 @@ class AetherCommandRenderer {
         if (state.isPinching) action = (document.getElementById('map-pinch') as HTMLSelectElement).value;
         else if (state.isFist) action = (document.getElementById('map-fist') as HTMLSelectElement).value;
         else if (state.isOpenPalm) action = (document.getElementById('map-palm') as HTMLSelectElement).value;
+        else if (state.isPeace) action = (document.getElementById('map-peace') as HTMLSelectElement).value;
         else if (state.swipeDirection) {
             const swipeBase = (document.getElementById('map-swipe') as HTMLSelectElement).value;
             if (swipeBase === 'SPACES') {

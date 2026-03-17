@@ -10,6 +10,7 @@ export interface GestureState {
     swipeDirection: 'left' | 'right' | 'up' | 'down' | null;
     isFist: boolean;
     isOpenPalm: boolean;
+    isPeace: boolean;
 }
 
 export class GestureEngine {
@@ -42,6 +43,7 @@ export class GestureEngine {
 
         const isFist = isIndexFolded && isMiddleFolded && isRingFolded && isPinkyFolded;
         const isOpenPalm = !isIndexFolded && !isMiddleFolded && !isRingFolded && !isPinkyFolded;
+        const isPeace = !isIndexFolded && !isMiddleFolded && isRingFolded && isPinkyFolded;
 
         // 2. Pinch Detection (Normalized)
         const rawPinchDist = this.calculateDistance(thumbTip, indexTip);
@@ -72,7 +74,8 @@ export class GestureEngine {
             velocity: this.velocity,
             swipeDirection,
             isFist,
-            isOpenPalm
+            isOpenPalm,
+            isPeace
         };
     }
 

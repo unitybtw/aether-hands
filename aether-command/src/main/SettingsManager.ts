@@ -7,6 +7,7 @@ export interface AppSettings {
         pinch: string;
         fist: string;
         palm: string;
+        peace: string;
         swipe: string;
     };
     smoothing: number;
@@ -23,6 +24,7 @@ const DEFAULT_SETTINGS: AppSettings = {
         pinch: 'PLAY_PAUSE',
         fist: 'MUTE_TOGGLE',
         palm: 'MISSION_CONTROL',
+        peace: 'SHOW_DESKTOP',
         swipe: 'SPACES'
     },
     smoothing: 0.5,
