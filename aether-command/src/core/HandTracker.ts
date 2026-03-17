@@ -47,6 +47,16 @@ export class HandTracker {
         }
     }
 
+    public updateOptions(confidence: number) {
+        if (!this.handLandmarker) return;
+        this.handLandmarker.setOptions({
+            minHandDetectionConfidence: confidence,
+            minHandPresenceConfidence: confidence,
+            minTrackingConfidence: confidence
+        });
+        console.log(`[HandTracker] Confidence updated to: ${confidence}`);
+    }
+
     private frameCount: number = 0;
     private lastHandCount: number = 0;
 

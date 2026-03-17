@@ -54,6 +54,7 @@ class AetherCommandRenderer {
     private lastHandDetectionTime = 0;
     private gestureTimeout: any = null;
     private isActivated = true;
+    private leftHandMode = false;
     
     // State to handle debouncing and duplicate triggers
     private lastActionTimes: Map<string, number> = new Map();
@@ -146,7 +147,10 @@ class AetherCommandRenderer {
             'map-pinch': settings.mappings.pinch,
             'map-fist': settings.mappings.fist,
             'map-palm': settings.mappings.palm,
-            'map-swipe': settings.mappings.swipe
+            'map-swipe': settings.mappings.swipe,
+            'setting-sensitivity': settings.sensitivity,
+            'setting-theme': settings.theme,
+            'setting-hand-preference': settings.leftHandMode
         };
 
         for (const [id, value] of Object.entries(uiMap)) {
@@ -156,7 +160,25 @@ class AetherCommandRenderer {
                 else el.value = (value as any).toString();
             }
         }
+        this.applyTheme(settings.theme);
         this.updateActivationUIState(settings.requireKey);
+        this.leftHandMode = settings.leftHandMode;
+        if (this.tracker) this.tracker.updateOptions(settings.sensitivity);
+    }
+
+    private applyTheme(theme: string) {
+        document.body.classList.remove('theme-minimal', 'theme-emerald');
+        if (theme !== 'cyberpunk') {
+            document.body.classList.add(`theme-${theme}`);
+        }
+        
+        // Update VFX colors
+        const colors: any = {
+            'cyberpunk': '#00e5ff',
+            'minimal': '#3b82f6',
+            'emerald': '#10b981'
+        };
+        if (this.vfx) (this.vfx as any).baseColor = colors[theme] || '#00e5ff';
     }
 
     private updateActivationUIState(enabled: boolean) {
@@ -171,6 +193,7 @@ class AetherCommandRenderer {
         const uiElements = [
             'setting-smoothing', 'setting-autolaunch', 
             'setting-require-key', 'setting-activation-key',
+            'setting-sensitivity', 'setting-theme', 'setting-hand-preference',
             'map-pinch', 'map-fist', 'map-palm', 'map-swipe'
         ];
         uiElements.forEach(id => {
@@ -197,10 +220,17 @@ class AetherCommandRenderer {
             smoothing: parseFloat((document.getElementById('setting-smoothing') as HTMLInputElement).value),
             openAtLogin: (document.getElementById('setting-autolaunch') as HTMLInputElement).checked,
             requireKey: (document.getElementById('setting-require-key') as HTMLInputElement).checked,
-            activationKey: (document.getElementById('setting-activation-key') as HTMLSelectElement).value
+            activationKey: (document.getElementById('setting-activation-key') as HTMLSelectElement).value,
+            sensitivity: parseFloat((document.getElementById('setting-sensitivity') as HTMLInputElement).value),
+            theme: (document.getElementById('setting-theme') as HTMLSelectElement).value,
+            leftHandMode: (document.getElementById('setting-hand-preference') as HTMLInputElement).checked
         };
 
         this.lerpAmount = settings.smoothing;
+        this.leftHandMode = settings.leftHandMode;
+        this.applyTheme(settings.theme as string);
+        this.tracker.updateOptions(settings.sensitivity);
+        
         window.electronAPI.saveSettings(settings);
         window.electronAPI.setLoginItem(settings.openAtLogin);
         this.log('Settings saved.');
@@ -276,14 +306,22 @@ class AetherCommandRenderer {
             const result = this.tracker.detect(this.video, performance.now());
             
             if (result && result.landmarks && result.landmarks.length > 0) {
-                // Draw Skeleton
-                this.vfx.drawSkeleton(result.landmarks[0], this.canvas.width, this.canvas.height);
+                // Filter by Hand Preference
+                const handedness = result.handedness[0][0].label; // "Left" or "Right"
+                const isRequestedHand = this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right');
+                
+                if (isRequestedHand) {
+                    // Draw Skeleton
+                    this.vfx.drawSkeleton(result.landmarks[0], this.canvas.width, this.canvas.height);
 
-                // Only process gestures if activated (key held or feature off)
-                if (this.isActivated) {
-                    const state = this.gesture.process(result.landmarks[0]);
-                    this.handleGestureState(state);
-                    this.updateGestureUI(state);
+                    // Only process gestures if activated (key held or feature off)
+                    if (this.isActivated) {
+                        const state = this.gesture.process(result.landmarks[0]);
+                        this.handleGestureState(state);
+                        this.updateGestureUI(state);
+                    } else {
+                        this.updateGestureUI(null);
+                    }
                 } else {
                     this.updateGestureUI(null);
                 }

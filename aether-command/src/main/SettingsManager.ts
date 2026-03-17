@@ -10,8 +10,11 @@ export interface AppSettings {
         swipe: string;
     };
     smoothing: number;
+    sensitivity: number;
     openAtLogin: boolean;
     requireKey: boolean;
+    leftHandMode: boolean;
+    theme: 'cyberpunk' | 'minimal' | 'emerald';
     activationKey: 'Command' | 'Option' | 'Control';
 }
 
@@ -23,8 +26,11 @@ const DEFAULT_SETTINGS: AppSettings = {
         swipe: 'SPACES'
     },
     smoothing: 0.5,
+    sensitivity: 0.8,
     openAtLogin: false,
     requireKey: false,
+    leftHandMode: false,
+    theme: 'cyberpunk',
     activationKey: 'Command'
 };
 
