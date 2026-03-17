@@ -64,12 +64,11 @@ export class HandTracker {
         if (!this.handLandmarker || !this.isInitialized) return null;
 
         /** 
-         * AGGRESSIVE OPTIMIZATION:
-         * 1. If no hands, check every frame.
-         * 2. If hands found, skip 3 frames.
+         * OPTIMIZATION:
+         * Skip 1 frame if hand found to maintain high FPS but save cycles.
          */
         this.frameCount++;
-        if (this.lastHandCount > 0 && this.frameCount % 3 !== 0) {
+        if (this.lastHandCount > 0 && this.frameCount % 2 !== 0) {
             return null; 
         }
 

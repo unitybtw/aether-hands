@@ -38,7 +38,38 @@ console.error = (...args: any[]) => {
     originalError.apply(console, args);
 };
 
+class AudioManager {
+    private ctx: AudioContext | null = null;
+
+    constructor() {}
+
+    private init() {
+        if (!this.ctx) this.ctx = new AudioContext();
+    }
+
+    public playSuccess() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, this.ctx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(880.00, this.ctx.currentTime + 0.1); // A5
+
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.3);
+    }
+}
+
 class AetherCommandRenderer {
+    private audio = new AudioManager();
     private video: HTMLVideoElement;
     private tracker: HandTracker;
     private gesture: GestureEngine;
@@ -307,8 +338,20 @@ class AetherCommandRenderer {
             
             if (result && result.landmarks && result.landmarks.length > 0) {
                 // Filter by Hand Preference
-                const handedness = result.handedness[0][0].label; // "Left" or "Right"
-                const isRequestedHand = this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right');
+                const handednessInfo = result.handedness?.[0]?.[0] || result.handedness?.[0];
+                const handedness = (handednessInfo as any)?.categoryName || 'Unknown';
+                
+                // Debug log (can be seen in log area)
+                if (this.frameCount % 60 === 0) {
+                    console.log(`Detected: ${handedness} | Target: ${this.leftHandMode ? 'Left' : 'Right'}`);
+                    if (handedness === 'Unknown') {
+                        console.log('Handedness Structure:', JSON.stringify(result.handedness));
+                    }
+                }
+
+                // If we can't determine handedness, we allow it (safety)
+                const isRequestedHand = (handedness === 'Unknown') || 
+                                       (this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right'));
                 
                 if (isRequestedHand) {
                     // Draw Skeleton
@@ -408,6 +451,7 @@ class AetherCommandRenderer {
             // Visual feedback burst
             const videoRect = this.video.getBoundingClientRect();
             this.vfx.createBurst(this.canvas.width / 2, this.canvas.height / 2, 30);
+            this.audio.playSuccess();
 
             window.electronAPI.triggerGestureAction(action);
             this.lastActionTimes.set(action, now);

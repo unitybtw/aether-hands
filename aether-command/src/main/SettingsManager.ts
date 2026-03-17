@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS: AppSettings = {
         swipe: 'SPACES'
     },
     smoothing: 0.5,
-    sensitivity: 0.8,
+    sensitivity: 0.7,
     openAtLogin: false,
     requireKey: false,
     leftHandMode: false,
