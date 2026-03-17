@@ -90,6 +90,9 @@ class AetherCommandRenderer {
     // State to handle debouncing and duplicate triggers
     private lastActionTimes: Map<string, number> = new Map();
     private lastGlobalActionTime: number = 0;
+    private lastFrameTime = 0;
+    private fpsEl: HTMLElement;
+    private confEl: HTMLElement;
     private readonly GLOBAL_DEBOUNCE_MS = 800; // Global cooldown between ANY gesture
     private readonly DEBOUNCE_MS = 1500; // Cooldown for the SAME gesture
 
@@ -103,6 +106,11 @@ class AetherCommandRenderer {
         this.tracker = new HandTracker();
         this.gesture = new GestureEngine();
         this.vfx = new VFXManager(this.ctx);
+        
+        // Debug tracking
+        this.lastFrameTime = performance.now();
+        this.fpsEl = document.getElementById('debug-fps')!;
+        this.confEl = document.getElementById('debug-conf')!;
 
         this.initialize();
     }
@@ -340,6 +348,12 @@ class AetherCommandRenderer {
                 // Filter by Hand Preference
                 const handednessInfo = result.handedness?.[0]?.[0] || result.handedness?.[0];
                 const handedness = (handednessInfo as any)?.categoryName || 'Unknown';
+
+                // Update Debug Info
+                const confidence = (handednessInfo as any)?.score || 0;
+                if (this.frameCount % 10 === 0) {
+                    this.confEl.innerText = `CONF: ${(confidence * 100).toFixed(0)}%`;
+                }
                 
                 // Debug log (can be seen in log area)
                 if (this.frameCount % 60 === 0) {
@@ -382,6 +396,15 @@ class AetherCommandRenderer {
         }
 
         this.vfx.draw();
+
+        // FPS Calculation
+        const now = performance.now();
+        const delta = now - this.lastFrameTime;
+        this.lastFrameTime = now;
+        if (this.frameCount % 30 === 0) {
+            this.fpsEl.innerText = `FPS: ${Math.round(1000 / delta)}`;
+        }
+
         requestAnimationFrame(() => this.loop());
     }
 

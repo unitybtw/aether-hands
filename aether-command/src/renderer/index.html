@@ -280,6 +280,11 @@
                 <div id="activation-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #4CAF50; box-shadow: 0 0 10px #4CAF50;"></div>
                 <span id="activation-text" style="color: #fff; opacity: 0.8;">Tracking Live</span>
             </div>
+            <!-- Debug Info -->
+            <div id="debug-info" style="position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.4); pointer-events: none;">
+                <span id="debug-fps">FPS: --</span>
+                <span id="debug-conf">CONF: --</span>
+            </div>
         </div>
         <div class="log-area" id="log">
             Awaiting gestures...
