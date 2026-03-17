@@ -50,7 +50,12 @@ export class SettingsManager {
         try {
             if (fs.existsSync(this.settingsPath)) {
                 const data = fs.readFileSync(this.settingsPath, 'utf-8');
-                return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+                const loaded = JSON.parse(data);
+                return { 
+                    ...DEFAULT_SETTINGS, 
+                    ...loaded,
+                    mappings: { ...DEFAULT_SETTINGS.mappings, ...loaded.mappings }
+                };
             }
         } catch (error) {
             console.error('[SettingsManager] Error loading settings:', error);

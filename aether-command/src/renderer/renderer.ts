@@ -198,7 +198,7 @@ class AetherCommandRenderer {
             const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement;
             if (el) {
                 if (el.type === 'checkbox') (el as HTMLInputElement).checked = value as boolean;
-                else el.value = (value as any).toString();
+                else if (value !== undefined) el.value = (value as any).toString();
             }
         }
         this.applyTheme(settings.theme);
