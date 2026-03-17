@@ -1,7 +1,7 @@
 export class VFXManager {
     private ctx: CanvasRenderingContext2D;
     private particles: any[] = [];
-    private MAX_PARTICLES = 100;
+    private MAX_PARTICLES = 60; // Reduced for performance
     public baseColor: string = "#00e5ff";
 
     constructor(ctx: CanvasRenderingContext2D) {
@@ -9,11 +9,14 @@ export class VFXManager {
     }
 
     public update() {
+        if (this.particles.length === 0) return;
+        
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
             p.x += p.vx;
             p.y += p.vy;
-            p.life -= 0.02;
+            p.life -= 0.03; // Faster fade for less overlapping
+            
             if (p.life <= 0) {
                 this.particles.splice(i, 1);
             }
@@ -21,26 +24,34 @@ export class VFXManager {
     }
 
     public draw() {
+        if (this.particles.length === 0) return;
+
         this.ctx.save();
         this.ctx.globalCompositeOperation = "lighter";
-        this.particles.forEach(p => {
-            const alpha = Math.max(0, p.life).toFixed(2);
+        
+        const count = this.particles.length;
+        for (let i = 0; i < count; i++) {
+            const p = this.particles[i];
+            const alpha = p.life <= 0 ? 0 : p.life;
             this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, Math.max(0, p.size * p.life), 0, Math.PI * 2);
-            this.ctx.fillStyle = this.hexToRgba(this.baseColor, parseFloat(alpha));
+            this.ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+            this.ctx.fillStyle = this.hexToRgba(this.baseColor, alpha);
             this.ctx.fill();
-        });
+        }
         this.ctx.restore();
     }
 
-    public createBurst(x: number, y: number, count: number = 20) {
-        if (this.particles.length > this.MAX_PARTICLES) return;
-        for (let i = 0; i < count; i++) {
+    public createBurst(x: number, y: number, count: number = 15) {
+        // Strict particle capping
+        if (this.particles.length >= this.MAX_PARTICLES) return;
+        const actualCount = Math.min(count, this.MAX_PARTICLES - this.particles.length);
+
+        for (let i = 0; i < actualCount; i++) {
             this.particles.push({
                 x, y,
                 vx: (Math.random() - 0.5) * 8,
                 vy: (Math.random() - 0.5) * 8,
-                size: Math.random() * 6 + 2,
+                size: Math.random() * 5 + 2,
                 life: 1.0
             });
         }
@@ -58,11 +69,11 @@ export class VFXManager {
             [5, 9, 13, 17, 5] // Palm
         ];
 
-        // Draw Glow
-        this.ctx.shadowBlur = 15;
+        // Draw Glow (Reduced blur for performance)
+        this.ctx.shadowBlur = 8;
         this.ctx.shadowColor = this.baseColor;
-        this.ctx.strokeStyle = this.hexToRgba(this.baseColor, 0.6);
-        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = this.hexToRgba(this.baseColor, 0.5);
+        this.ctx.lineWidth = 2.5;
         this.ctx.lineJoin = "round";
         this.ctx.lineCap = "round";
 
@@ -79,14 +90,13 @@ export class VFXManager {
         });
 
         // Draw Joints
+        this.ctx.fillStyle = "#fff";
+        this.ctx.shadowBlur = 4;
         landmarks.forEach(pt => {
             const x = (1 - pt.x) * width;
             const y = pt.y * height;
             this.ctx.beginPath();
-            this.ctx.arc(x, y, 4, 0, Math.PI * 2);
-            this.ctx.fillStyle = "#fff";
-            this.ctx.shadowBlur = 10;
-            this.ctx.shadowColor = this.baseColor;
+            this.ctx.arc(x, y, 3, 0, Math.PI * 2);
             this.ctx.fill();
         });
 
@@ -104,6 +114,7 @@ export class VFXManager {
             g = parseInt(hex.substring(3, 5), 16);
             b = parseInt(hex.substring(5, 7), 16);
         }
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        // Round alpha for string performance
+        return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
     }
 }

@@ -18,5 +18,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return () => ipcRenderer.removeListener('show-hud', subscription);
     },
     log: (level: string, msg: string) => ipcRenderer.send('renderer-log', level, msg),
-    setTrackingStatus: (active: boolean) => ipcRenderer.send('set-tracking-status', active)
+    setTrackingStatus: (active: boolean) => ipcRenderer.send('set-tracking-status', active),
+    onVisibilityChanged: (callback: (visible: boolean) => void) => {
+        const sub = (_event: any, visible: boolean) => callback(visible);
+        ipcRenderer.on('window-visibility', sub);
+        return () => ipcRenderer.removeListener('window-visibility', sub);
+    }
 });

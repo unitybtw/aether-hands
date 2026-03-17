@@ -1,8 +1,12 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, systemPreferences, session, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, systemPreferences, session, globalShortcut, powerMonitor } from 'electron';
 import { exec } from 'child_process';
 import * as path from 'path';
 import { SettingsManager } from './SettingsManager';
 import { SystemService } from './SystemService';
+// Optimization Flags
+app.commandLine.appendSwitch('disable-http-cache');
+app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128'); // Restrict V8 heap for background process
 
 process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EPIPE') {
@@ -100,6 +104,9 @@ const createWindow = () => {
             mainWindow?.hide();
         }
     });
+
+    mainWindow.on('show', () => mainWindow?.webContents.send('window-visibility', true));
+    mainWindow.on('hide', () => mainWindow?.webContents.send('window-visibility', false));
 };
 
 const createHudWindow = () => {
@@ -142,6 +149,19 @@ app.whenReady().then(async () => {
     createWindow();
     createHudWindow();
     updateActivationPolling();
+
+    // Power Monitor
+    powerMonitor.on('suspend', () => {
+        console.log('[Main] System suspending, stopping polling.');
+        stopActivationPolling();
+        mainWindow?.webContents.send('window-visibility', false);
+    });
+
+    powerMonitor.on('resume', () => {
+        console.log('[Main] System resumed, restarting polling.');
+        updateActivationPolling();
+        mainWindow?.webContents.send('window-visibility', true);
+    });
 
     // Register Global Shortcut
     globalShortcut.register('Alt+A', () => {

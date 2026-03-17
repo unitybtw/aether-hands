@@ -14,6 +14,7 @@ declare global {
       getActivationState: () => Promise<boolean>;
       onActivationStateChanged: (callback: (state: boolean) => void) => () => void;
       setTrackingStatus: (active: boolean) => void;
+      onVisibilityChanged: (callback: (visible: boolean) => void) => () => void;
     };
   }
 }
@@ -101,9 +102,10 @@ class AetherCommandRenderer {
     private pinchAnchorY: number | null = null;
     private readonly CONTINUOUS_THRESH = 0.05; // 5% of screen height
     
-    // Inactivity State
+    // Inactivity State & Optimization
     private lastInteractionTime: number = Date.now();
     private isSuspended: boolean = false;
+    private isVisible: boolean = true;
     private readonly SUSPEND_TIMEOUT_MS = 300000; // 5 minutes
 
     constructor() {
@@ -124,6 +126,11 @@ class AetherCommandRenderer {
 
         this.initialize();
         this.setupInactivityListeners();
+
+        window.electronAPI.onVisibilityChanged((visible) => {
+            this.isVisible = visible;
+            this.log(`Performance: Switch to ${visible ? 'Foreground' : 'Background'} mode.`);
+        });
     }
 
     private setupInactivityListeners() {
@@ -190,19 +197,6 @@ class AetherCommandRenderer {
         text.innerText = active ? 'Tracking Active' : 'Tracking Suspended (Hold Key)';
     }
 
-    private async loadSettings() {
-        // This method is now largely superseded by the initial settings load in initialize()
-        // but kept for potential future direct calls or clarity.
-        try {
-            const settings = await window.electronAPI.getSettings();
-            this.lerpAmount = settings.smoothing;
-            this.updateUIFromSettings(settings);
-            this.log('Settings synchronized.');
-        } catch (e) {
-            this.log('Failed to load settings.');
-        }
-    }
-
     private updateUIFromSettings(settings: any) {
         const uiMap: any = {
             'setting-smoothing': settings.smoothing,
@@ -238,7 +232,6 @@ class AetherCommandRenderer {
             document.body.classList.add(`theme-${theme}`);
         }
         
-        // Update VFX colors
         const colors: any = {
             'cyberpunk': '#00e5ff',
             'minimal': '#3b82f6',
@@ -306,17 +299,10 @@ class AetherCommandRenderer {
     private async initCamera(): Promise<boolean> {
         this.log('Camera: Enumerating devices...');
         
-        // Global error capture for the renderer
-        window.onerror = (message, source, lineno, colno, error) => {
-            this.log(`JS Error: ${message}`);
-            console.error('Renderer Error:', { message, source, lineno, colno, error });
-        };
-
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const cameras = devices.filter(d => d.kind === 'videoinput');
             this.log(`Camera: Found ${cameras.length} device(s).`);
-            cameras.forEach(c => this.log(`- ${c.label || 'Unnamed Device'}`));
 
             this.log('Camera: Requesting access (HD)...');
             let stream: MediaStream;
@@ -325,37 +311,20 @@ class AetherCommandRenderer {
                     video: { width: 640, height: 480, facingMode: "user" } 
                 });
             } catch (e) {
-                this.log('Camera: Preferred constraints failed. Falling back...');
                 stream = await navigator.mediaDevices.getUserMedia({ video: true });
             }
-            this.log('Camera: Stream obtained.');
             this.video.srcObject = stream;
             
             return new Promise((resolve) => {
-                const timeout = setTimeout(() => {
-                    this.log('Camera Error: Timeout waiting for video data.');
-                    resolve(false);
-                }, 5000);
-
                 this.video.onloadeddata = () => {
-                    clearTimeout(timeout);
                     this.log('Camera: Video data loaded.');
                     this.video.play().catch(e => this.log(`Camera: Play failed - ${e.message}`));
                     resolve(true);
                 };
-
-                this.video.onerror = (e) => {
-                    clearTimeout(timeout);
-                    this.log('Camera Error: Video element error.');
-                    console.error('Video Error:', e);
-                    resolve(false);
-                };
+                this.video.onerror = () => resolve(false);
             });
         } catch (error: any) {
             this.log(`Camera Error: ${error.name} - ${error.message}`);
-            this.statusEl.innerText = "Camera Denied/Error";
-            this.statusEl.style.color = "#ff4b2b";
-            console.error('Camera Access Error:', error);
             return false;
         }
     }
@@ -363,85 +332,83 @@ class AetherCommandRenderer {
     async loop() {
         if (!this.isRunning) return;
 
-        // Check for Inactivity (Energy Saving)
+        // 1. Inactivity Suspension
         if (Date.now() - this.lastInteractionTime > this.SUSPEND_TIMEOUT_MS) {
             if (!this.isSuspended) {
                 this.isSuspended = true;
                 document.body.classList.add('battery-saver');
-                this.log('Aether: Suspended tracking to energy-saving mode.');
+                this.log('Aether: Suspended tracking to save energy.');
                 window.electronAPI.setTrackingStatus(false);
             }
-            this.vfx.update(); // Keep background effects running slowly
-            this.vfx.draw();
             requestAnimationFrame(() => this.loop());
             return;
         }
+
+        // 2. Background Throttling (Target ~15 FPS instead of 60)
+        if (!this.isVisible) {
+            await new Promise(resolve => setTimeout(resolve, 66));
+        }
         
-        // Clear and Update VFX
+        // 3. VFX Culling
         this.canvas.width = this.canvas.clientWidth;
         this.canvas.height = this.canvas.clientHeight;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.vfx.update();
+        
+        if (this.isVisible) {
+            this.vfx.update();
+        }
 
         try {
-            const result = this.tracker.detect(this.video, performance.now());
-            
-            if (result && result.landmarks && result.landmarks.length > 0) {
-                // Filter by Hand Preference
-                const handednessInfo = result.handedness?.[0]?.[0] || result.handedness?.[0];
-                const handedness = (handednessInfo as any)?.categoryName || 'Unknown';
-
-                // Update Debug Info
-                const confidence = (handednessInfo as any)?.score || 0;
-                if (this.frameCount % 10 === 0) {
-                    this.confEl.innerText = `CONF: ${(confidence * 100).toFixed(0)}%`;
-                }
+            // Adaptive Frame Skipping: Skip more in background
+            const skipRate = this.isVisible ? 2 : 4;
+            if (this.frameCount % skipRate === 0) {
+                const result = this.tracker.detect(this.video, performance.now());
                 
-                // Debug log (can be seen in log area)
-                if (this.frameCount % 60 === 0) {
-                    console.log(`Detected: ${handedness} | Target: ${this.leftHandMode ? 'Left' : 'Right'}`);
-                    if (handedness === 'Unknown') {
-                        console.log('Handedness Structure:', JSON.stringify(result.handedness));
+                if (result && result.landmarks && result.landmarks.length > 0) {
+                    const handednessInfo = result.handedness?.[0]?.[0] || result.handedness?.[0];
+                    const handedness = (handednessInfo as any)?.categoryName || 'Unknown';
+                    const confidence = (handednessInfo as any)?.score || 0;
+
+                    if (this.frameCount % 10 === 0) {
+                        this.confEl.innerText = `CONF: ${(confidence * 100).toFixed(0)}%`;
                     }
-                }
 
-                // If we can't determine handedness, we allow it (safety)
-                const isRequestedHand = (handedness === 'Unknown') || 
-                                       (this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right'));
-                
-                if (isRequestedHand) {
-                    // Signal active tracking to Tray
-                    window.electronAPI.setTrackingStatus(true);
+                    const isRequestedHand = (handedness === 'Unknown') || 
+                                           (this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right'));
+                    
+                    if (isRequestedHand) {
+                        window.electronAPI.setTrackingStatus(true);
+                        if (this.isVisible) {
+                            this.vfx.drawSkeleton(result.landmarks[0], this.canvas.width, this.canvas.height);
+                        }
 
-                    // Draw Skeleton
-                    this.vfx.drawSkeleton(result.landmarks[0], this.canvas.width, this.canvas.height);
-
-                    // Only process gestures if activated (key held or feature off)
-                    if (this.isActivated) {
-                        const state = this.gesture.process(result.landmarks[0]);
-                        this.handleGestureState(state);
-                        this.updateGestureUI(state);
+                        if (this.isActivated) {
+                            const state = this.gesture.process(result.landmarks[0]);
+                            this.handleGestureState(state);
+                            this.updateGestureUI(state);
+                        } else {
+                            this.updateGestureUI(null);
+                        }
                     } else {
                         this.updateGestureUI(null);
                     }
+                    this.lastHandDetectionTime = Date.now();
                 } else {
-                    this.updateGestureUI(null);
-                }
-                this.lastHandDetectionTime = Date.now();
-            } else {
-                // If hand lost for more than 2 seconds, log once
-                if (Date.now() - this.lastHandDetectionTime > 2000 && this.lastHandDetectionTime !== 0) {
-                    this.log('Tracking: Hand lost.');
-                    window.electronAPI.setTrackingStatus(false);
-                    this.lastHandDetectionTime = 0;
-                    this.updateGestureUI(null);
+                    if (Date.now() - this.lastHandDetectionTime > 2000 && this.lastHandDetectionTime !== 0) {
+                        this.log('Tracking: Hand lost.');
+                        window.electronAPI.setTrackingStatus(false);
+                        this.lastHandDetectionTime = 0;
+                        this.updateGestureUI(null);
+                    }
                 }
             }
         } catch (e) {
             console.error('[Tracker] Error in loop:', e);
         }
 
-        this.vfx.draw();
+        if (this.isVisible) {
+            this.vfx.draw();
+        }
 
         // FPS Calculation
         const now = performance.now();
@@ -451,13 +418,13 @@ class AetherCommandRenderer {
             this.fpsEl.innerText = `FPS: ${Math.round(1000 / delta)}`;
         }
 
+        this.frameCount++;
         requestAnimationFrame(() => this.loop());
     }
 
     private updateGestureUI(state: any) {
         const feedbackEl = document.getElementById('gesture-feedback');
         const gestureSpan = document.getElementById('last-gesture');
-        
         if (!feedbackEl || !gestureSpan) return;
 
         if (!state) {
@@ -477,10 +444,7 @@ class AetherCommandRenderer {
             gestureSpan.innerText = name;
             feedbackEl.style.opacity = '1';
             
-            // Clear after 1 second if no new gesture
-            if (this.gestureTimeout) {
-                clearTimeout(this.gestureTimeout);
-            }
+            if (this.gestureTimeout) clearTimeout(this.gestureTimeout);
             this.gestureTimeout = setTimeout(() => {
                 document.body.classList.remove('gesture-active');
                 feedbackEl.style.opacity = '0';
@@ -490,32 +454,25 @@ class AetherCommandRenderer {
     }
 
     private handleGestureState(state: any) {
-        if (!state.isPinching) {
-            this.pinchAnchorY = null;
-        }
+        if (!state.isPinching) this.pinchAnchorY = null;
         
         let action: string | null = null;
-
         if (state.isPinching) {
             action = (document.getElementById('map-pinch') as HTMLSelectElement).value;
-            
-            // Handle Continuous Vertical Control (Volume/Brightness)
             if (state.pinchStartPos && (action === 'VOLUME_UP' || action === 'VOLUME_DOWN' || action === 'BRIGHTNESS_UP' || action === 'BRIGHTNESS_DOWN')) {
                 if (this.pinchAnchorY === null) {
                     this.pinchAnchorY = state.pinchStartPos.y;
                 } else {
                     const deltaY = state.pinchStartPos.y - this.pinchAnchorY;
                     if (Math.abs(deltaY) > this.CONTINUOUS_THRESH) {
-                        // Invert delta because MediaPipe Y is top-down
                         const finalAction = deltaY < 0 ? 
                             (action.includes('VOLUME') ? 'VOLUME_UP' : 'BRIGHTNESS_UP') : 
                             (action.includes('VOLUME') ? 'VOLUME_DOWN' : 'BRIGHTNESS_DOWN');
-                        
-                        this.triggerAction(finalAction, true); // true = ignore regular debounce
-                        this.pinchAnchorY = state.pinchStartPos.y; // reset anchor for next step
+                        this.triggerAction(finalAction, true);
+                        this.pinchAnchorY = state.pinchStartPos.y;
                     }
                 }
-                return; // Exit as we handled it continuously
+                return;
             }
         } 
         else if (state.isFist) action = (document.getElementById('map-fist') as HTMLSelectElement).value;
@@ -530,29 +487,19 @@ class AetherCommandRenderer {
             }
         }
 
-        if (action && action !== 'NONE') {
-            this.triggerAction(action);
-        }
+        if (action && action !== 'NONE') this.triggerAction(action);
     }
 
     private triggerAction(action: string, continuous = false) {
         const now = Date.now();
         const lastTime = this.lastActionTimes.get(action) || 0;
-        
         const debounce = continuous ? 150 : this.DEBOUNCE_MS;
 
-        // Apply global debounce (prevents multiple DIFFERENT shortcuts from firing together)
-        if (!continuous && now - this.lastGlobalActionTime < this.GLOBAL_DEBOUNCE_MS) {
-            return;
-        }
+        if (!continuous && now - this.lastGlobalActionTime < this.GLOBAL_DEBOUNCE_MS) return;
 
-        // Debounce to prevent multiple triggers for the SAME continuous gesture
         if (now - lastTime > debounce) {
-            // Visual feedback burst
-            const videoRect = this.video.getBoundingClientRect();
             this.vfx.createBurst(this.canvas.width / 2, this.canvas.height / 2, 30);
             this.audio.playSuccess();
-
             window.electronAPI.triggerGestureAction(action);
             this.lastActionTimes.set(action, now);
             this.lastGlobalActionTime = now;
@@ -561,7 +508,6 @@ class AetherCommandRenderer {
     }
 
     private log(msg: string) {
-        // UI log
         const entry = document.createElement('div');
         entry.style.fontSize = '0.75rem';
         entry.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
@@ -571,12 +517,9 @@ class AetherCommandRenderer {
         
         if (this.logEl) {
             this.logEl.prepend(entry);
-            while (this.logEl.children.length > 20) {
-                this.logEl.removeChild(this.logEl.lastChild!);
-            }
+            while (this.logEl.children.length > 20) this.logEl.removeChild(this.logEl.lastChild!);
         }
 
-        // Main Process terminal bridge
         try {
             window.electronAPI.log('info', msg);
         } catch (e) {
