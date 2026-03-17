@@ -19,52 +19,54 @@ declare global {
   }
 }
 
-// Bridge all console logs to the main process for easier debugging
-const originalLog = console.log;
-console.log = (...args: any[]) => {
-    const msg = args.map(a => {
-        if (a instanceof Error) return `${a.name}: ${a.message}\n${a.stack}`;
-        return typeof a === 'object' ? JSON.stringify(a) : a;
-    }).join(' ');
-    window.electronAPI.log('info', msg);
-    originalLog.apply(console, args);
-};
+// Low-pass filter for landmark smoothing
+class LandmarkSmoother {
+    private lastLandmarks: any[] = [];
+    private factor: number;
 
-const originalError = console.error;
-console.error = (...args: any[]) => {
-    const msg = args.map(a => {
-        if (a instanceof Error) return `${a.name}: ${a.message}\n${a.stack}`;
-        return typeof a === 'object' ? JSON.stringify(a) : a;
-    }).join(' ');
-    window.electronAPI.log('error', msg);
-    originalError.apply(console, args);
-};
+    constructor(factor: number = 0.35) {
+        this.factor = factor;
+    }
+
+    public smooth(newLandmarks: any[]): any[] {
+        if (this.lastLandmarks.length === 0) {
+            this.lastLandmarks = JSON.parse(JSON.stringify(newLandmarks));
+            return newLandmarks;
+        }
+
+        const smoothed = newLandmarks.map((pt, i) => {
+            const last = this.lastLandmarks[i];
+            if (!last) return pt;
+            return {
+                x: pt.x * (1 - this.factor) + last.x * this.factor,
+                y: pt.y * (1 - this.factor) + last.y * this.factor,
+                z: pt.z * (1 - this.factor) + last.z * this.factor
+            };
+        });
+
+        this.lastLandmarks = smoothed;
+        return smoothed;
+    }
+
+    public setFactor(f: number) { this.factor = f; }
+}
 
 class AudioManager {
     private ctx: AudioContext | null = null;
-
     constructor() {}
-
-    private init() {
-        if (!this.ctx) this.ctx = new AudioContext();
-    }
-
+    private init() { if (!this.ctx) this.ctx = new AudioContext(); }
     public playSuccess() {
         this.init();
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, this.ctx.currentTime); // D5
-        osc.frequency.exponentialRampToValueAtTime(880.00, this.ctx.currentTime + 0.1); // A5
-
+        osc.frequency.setValueAtTime(587.33, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880.00, this.ctx.currentTime + 0.1);
         gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
-
         osc.connect(gain);
         gain.connect(this.ctx.destination);
-
         osc.start();
         osc.stop(this.ctx.currentTime + 0.3);
     }
@@ -76,6 +78,7 @@ class AetherCommandRenderer {
     private tracker: HandTracker;
     private gesture: GestureEngine;
     private vfx: VFXManager;
+    private smoother = new LandmarkSmoother();
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
     private statusEl: HTMLElement;
@@ -89,24 +92,21 @@ class AetherCommandRenderer {
     private isActivated = true;
     private leftHandMode = false;
     
-    // State to handle debouncing and duplicate triggers
     private lastActionTimes: Map<string, number> = new Map();
     private lastGlobalActionTime: number = 0;
     private lastFrameTime = 0;
     private fpsEl: HTMLElement;
     private confEl: HTMLElement;
-    private readonly GLOBAL_DEBOUNCE_MS = 800; // Global cooldown between ANY gesture
-    private readonly DEBOUNCE_MS = 1500; // Cooldown for the SAME gesture
+    private readonly GLOBAL_DEBOUNCE_MS = 800;
+    private readonly DEBOUNCE_MS = 1500;
     
-    // Continuous Control State
     private pinchAnchorY: number | null = null;
-    private readonly CONTINUOUS_THRESH = 0.05; // 5% of screen height
+    private readonly CONTINUOUS_THRESH = 0.05;
     
-    // Inactivity State & Optimization
     private lastInteractionTime: number = Date.now();
     private isSuspended: boolean = false;
     private isVisible: boolean = true;
-    private readonly SUSPEND_TIMEOUT_MS = 300000; // 5 minutes
+    private readonly SUSPEND_TIMEOUT_MS = 300000;
 
     constructor() {
         this.video = document.getElementById('webcam') as HTMLVideoElement;
@@ -119,7 +119,6 @@ class AetherCommandRenderer {
         this.gesture = new GestureEngine();
         this.vfx = new VFXManager(this.ctx);
         
-        // Debug tracking
         this.lastFrameTime = performance.now();
         this.fpsEl = document.getElementById('debug-fps')!;
         this.confEl = document.getElementById('debug-conf')!;
@@ -129,7 +128,7 @@ class AetherCommandRenderer {
 
         window.electronAPI.onVisibilityChanged((visible) => {
             this.isVisible = visible;
-            this.log(`Performance: Switch to ${visible ? 'Foreground' : 'Background'} mode.`);
+            this.log(`System: ${visible ? 'Dashboard Visible' : 'Dashboard Hidden'}.`);
         });
     }
 
@@ -144,57 +143,46 @@ class AetherCommandRenderer {
         if (this.isSuspended) {
             this.isSuspended = false;
             document.body.classList.remove('battery-saver');
-            this.log('Aether: System awake.');
+            this.log('Status: Wake up signal received.');
         }
     }
 
     async initialize() {
         try {
-            // 1. Initial State Sync
             const settings = await window.electronAPI.getSettings();
             this.updateUIFromSettings(settings);
             this.lerpAmount = settings.smoothing;
+            this.smoother.setFactor(settings.smoothing);
             this.setupEventListeners();
 
-            // Initial activation state
             const initialState = await (window.electronAPI as any).getActivationState();
             this.isActivated = initialState !== false;
             this.updateActivationStatusUI(this.isActivated);
 
-            // Listen for changes
             (window.electronAPI as any).onActivationStateChanged((state: boolean) => {
                 this.isActivated = state;
                 this.updateActivationStatusUI(state);
             });
 
-            // 2. Camera setup
             const hasCamera = await this.initCamera();
-            if (!hasCamera) {
-                this.log('Critical: Camera initialization failed.');
-                return;
-            }
+            if (!hasCamera) return;
 
-            // 3. MediaPipe setup
             await this.tracker.initialize();
-            this.log('Aether-Command: Ready.');
-
-            // 4. Start loop
             this.isRunning = true;
             this.loop();
         } catch (err: any) {
-            this.log(`Initialize Error: ${err.message}`);
-            console.error('Initialization Failed:', err);
+            this.log(`Critical Error: ${err.message}`);
         }
     }
 
     private updateActivationStatusUI(active: boolean) {
         const dot = document.getElementById('activation-dot');
         const text = document.getElementById('activation-text');
-        if (!dot || !text) return;
-
-        dot.style.background = active ? '#4CAF50' : '#FF5252';
-        dot.style.boxShadow = active ? '0 0 8px #4CAF50' : '0 0 8px #FF5252';
-        text.innerText = active ? 'Tracking Active' : 'Tracking Suspended (Hold Key)';
+        if (dot && text) {
+            dot.style.background = active ? '#00e5ff' : '#64748b';
+            dot.style.boxShadow = active ? '0 0 10px #00e5ff' : 'none';
+            text.innerText = active ? 'SYSTEM ARMED' : 'SYSTEM STANDBY (HOLD KEY)';
+        }
     }
 
     private updateUIFromSettings(settings: any) {
@@ -228,15 +216,8 @@ class AetherCommandRenderer {
 
     private applyTheme(theme: string) {
         document.body.classList.remove('theme-minimal', 'theme-emerald');
-        if (theme !== 'cyberpunk') {
-            document.body.classList.add(`theme-${theme}`);
-        }
-        
-        const colors: any = {
-            'cyberpunk': '#00e5ff',
-            'minimal': '#3b82f6',
-            'emerald': '#10b981'
-        };
+        if (theme !== 'cyberpunk') document.body.classList.add(`theme-${theme}`);
+        const colors: any = { 'cyberpunk': '#00e5ff', 'minimal': '#3b82f6', 'emerald': '#10b981' };
         if (this.vfx) (this.vfx as any).baseColor = colors[theme] || '#00e5ff';
     }
 
@@ -257,14 +238,10 @@ class AetherCommandRenderer {
         ];
         uiElements.forEach(id => {
             const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('change', () => {
-                    if (id === 'setting-require-key') {
-                        this.updateActivationUIState((el as HTMLInputElement).checked);
-                    }
-                    this.handleSettingChange();
-                });
-            }
+            if (el) el.addEventListener('change', () => {
+                if (id === 'setting-require-key') this.updateActivationUIState((el as HTMLInputElement).checked);
+                this.handleSettingChange();
+            });
         });
     }
 
@@ -285,105 +262,75 @@ class AetherCommandRenderer {
             theme: (document.getElementById('setting-theme') as HTMLSelectElement).value,
             leftHandMode: (document.getElementById('setting-hand-preference') as HTMLInputElement).checked
         };
-
         this.lerpAmount = settings.smoothing;
+        this.smoother.setFactor(settings.smoothing);
         this.leftHandMode = settings.leftHandMode;
         this.applyTheme(settings.theme as string);
         this.tracker.updateOptions(settings.sensitivity);
-        
         window.electronAPI.saveSettings(settings);
-        window.electronAPI.setLoginItem(settings.openAtLogin);
-        this.log('Settings saved.');
     }
 
     private async initCamera(): Promise<boolean> {
-        this.log('Camera: Enumerating devices...');
-        
         try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const cameras = devices.filter(d => d.kind === 'videoinput');
-            this.log(`Camera: Found ${cameras.length} device(s).`);
-
-            this.log('Camera: Requesting access (HD)...');
-            let stream: MediaStream;
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480, facingMode: "user" } 
-                });
-            } catch (e) {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            }
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 640, height: 480, facingMode: "user" } 
+            });
             this.video.srcObject = stream;
-            
             return new Promise((resolve) => {
-                this.video.onloadeddata = () => {
-                    this.log('Camera: Video data loaded.');
-                    this.video.play().catch(e => this.log(`Camera: Play failed - ${e.message}`));
-                    resolve(true);
-                };
+                this.video.onloadeddata = () => { this.video.play(); resolve(true); };
                 this.video.onerror = () => resolve(false);
             });
-        } catch (error: any) {
-            this.log(`Camera Error: ${error.name} - ${error.message}`);
-            return false;
-        }
+        } catch (error) { return false; }
     }
 
     async loop() {
         if (!this.isRunning) return;
 
-        // 1. Inactivity Suspension
         if (Date.now() - this.lastInteractionTime > this.SUSPEND_TIMEOUT_MS) {
             if (!this.isSuspended) {
                 this.isSuspended = true;
                 document.body.classList.add('battery-saver');
-                this.log('Aether: Suspended tracking to save energy.');
                 window.electronAPI.setTrackingStatus(false);
             }
             requestAnimationFrame(() => this.loop());
             return;
         }
 
-        // 2. Background Throttling (Target ~15 FPS instead of 60)
-        if (!this.isVisible) {
-            await new Promise(resolve => setTimeout(resolve, 66));
-        }
+        if (!this.isVisible) await new Promise(resolve => setTimeout(resolve, 66));
         
-        // 3. VFX Culling
         this.canvas.width = this.canvas.clientWidth;
         this.canvas.height = this.canvas.clientHeight;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        if (this.isVisible) {
-            this.vfx.update();
-        }
+        this.vfx.update();
 
         try {
-            // Adaptive Frame Skipping: Skip more in background
-            const skipRate = this.isVisible ? 2 : 4;
+            const skipRate = this.isVisible ? 1 : 2; // Increased efficiency
             if (this.frameCount % skipRate === 0) {
                 const result = this.tracker.detect(this.video, performance.now());
-                
                 if (result && result.landmarks && result.landmarks.length > 0) {
                     const handednessInfo = result.handedness?.[0]?.[0] || result.handedness?.[0];
                     const handedness = (handednessInfo as any)?.categoryName || 'Unknown';
                     const confidence = (handednessInfo as any)?.score || 0;
 
-                    if (this.frameCount % 10 === 0) {
-                        this.confEl.innerText = `CONF: ${(confidence * 100).toFixed(0)}%`;
-                    }
+                    if (this.frameCount % 10 === 0) this.confEl.innerText = `CONF: ${(confidence * 100).toFixed(0)}%`;
 
-                    const isRequestedHand = (handedness === 'Unknown') || 
-                                           (this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right'));
+                    const isRequestedHand = (handedness === 'Unknown') || (this.leftHandMode ? (handedness === 'Left') : (handedness === 'Right'));
                     
                     if (isRequestedHand) {
                         window.electronAPI.setTrackingStatus(true);
-                        if (this.isVisible) {
-                            this.vfx.drawSkeleton(result.landmarks[0], this.canvas.width, this.canvas.height);
+                        
+                        // Predictive Smoothing
+                        const smoothed = this.smoother.smooth(result.landmarks[0]);
+                        this.vfx.drawSkeleton(smoothed, this.canvas.width, this.canvas.height, confidence);
+
+                        // Proximity Warning
+                        const proxEl = document.getElementById('proximity-warning');
+                        if (proxEl) {
+                            proxEl.style.opacity = smoothed[0].z < -0.8 ? '1' : '0';
                         }
 
                         if (this.isActivated) {
-                            const state = this.gesture.process(result.landmarks[0]);
+                            const state = this.gesture.process(smoothed);
                             this.handleGestureState(state);
                             this.updateGestureUI(state);
                         } else {
@@ -395,29 +342,20 @@ class AetherCommandRenderer {
                     this.lastHandDetectionTime = Date.now();
                 } else {
                     if (Date.now() - this.lastHandDetectionTime > 2000 && this.lastHandDetectionTime !== 0) {
-                        this.log('Tracking: Hand lost.');
                         window.electronAPI.setTrackingStatus(false);
                         this.lastHandDetectionTime = 0;
                         this.updateGestureUI(null);
                     }
                 }
             }
-        } catch (e) {
-            console.error('[Tracker] Error in loop:', e);
-        }
+        } catch (e) { console.error(e); }
 
-        if (this.isVisible) {
-            this.vfx.draw();
-        }
+        if (this.isVisible) this.vfx.draw();
 
-        // FPS Calculation
         const now = performance.now();
         const delta = now - this.lastFrameTime;
         this.lastFrameTime = now;
-        if (this.frameCount % 30 === 0) {
-            this.fpsEl.innerText = `FPS: ${Math.round(1000 / delta)}`;
-        }
-
+        if (this.frameCount % 30 === 0) this.fpsEl.innerText = `FPS: ${Math.round(1000 / delta)}`;
         this.frameCount++;
         requestAnimationFrame(() => this.loop());
     }
@@ -425,25 +363,29 @@ class AetherCommandRenderer {
     private updateGestureUI(state: any) {
         const feedbackEl = document.getElementById('gesture-feedback');
         const gestureSpan = document.getElementById('last-gesture');
+        const overlay = document.getElementById('gesture-status-overlay');
         if (!feedbackEl || !gestureSpan) return;
 
         if (!state) {
             feedbackEl.style.opacity = '0';
+            this.clearStatusHighlights();
             return;
         }
 
         let name = 'NONE';
-        if (state.isPinching) name = 'PINCH 🤏';
-        else if (state.isFist) name = 'FIST ✊';
-        else if (state.isOpenPalm) name = 'PALM ✋';
-        else if (state.isPeace) name = 'PEACE ✌️';
-        else if (state.swipeDirection) name = `SWIPE ${state.swipeDirection.toUpperCase()}`;
+        let statusId = '';
+        if (state.isPinching) { name = 'PINCH 🤏'; statusId = 'status-pinch'; }
+        else if (state.isFist) { name = 'FIST ✊'; statusId = 'status-fist'; }
+        else if (state.isOpenPalm) { name = 'PALM ✋'; statusId = 'status-palm'; }
+        else if (state.isPeace) { name = 'PEACE ✌️'; statusId = 'status-peace'; }
+        else if (state.swipeDirection) { name = `SWIPE ${state.swipeDirection.toUpperCase()}`; statusId = 'status-swipe'; }
+
+        this.highlightStatus(statusId);
 
         if (name !== 'NONE') {
             document.body.classList.add('gesture-active');
             gestureSpan.innerText = name;
             feedbackEl.style.opacity = '1';
-            
             if (this.gestureTimeout) clearTimeout(this.gestureTimeout);
             this.gestureTimeout = setTimeout(() => {
                 document.body.classList.remove('gesture-active');
@@ -453,16 +395,24 @@ class AetherCommandRenderer {
         }
     }
 
+    private highlightStatus(id: string) {
+        this.clearStatusHighlights();
+        const el = document.getElementById(id);
+        if (el) el.classList.add('active');
+    }
+
+    private clearStatusHighlights() {
+        document.querySelectorAll('.status-pill').forEach(p => p.classList.remove('active'));
+    }
+
     private handleGestureState(state: any) {
         if (!state.isPinching) this.pinchAnchorY = null;
-        
         let action: string | null = null;
         if (state.isPinching) {
             action = (document.getElementById('map-pinch') as HTMLSelectElement).value;
             if (state.pinchStartPos && (action === 'VOLUME_UP' || action === 'VOLUME_DOWN' || action === 'BRIGHTNESS_UP' || action === 'BRIGHTNESS_DOWN')) {
-                if (this.pinchAnchorY === null) {
-                    this.pinchAnchorY = state.pinchStartPos.y;
-                } else {
+                if (this.pinchAnchorY === null) this.pinchAnchorY = state.pinchStartPos.y;
+                else {
                     const deltaY = state.pinchStartPos.y - this.pinchAnchorY;
                     if (Math.abs(deltaY) > this.CONTINUOUS_THRESH) {
                         const finalAction = deltaY < 0 ? 
@@ -480,13 +430,8 @@ class AetherCommandRenderer {
         else if (state.isPeace) action = (document.getElementById('map-peace') as HTMLSelectElement).value;
         else if (state.swipeDirection) {
             const swipeBase = (document.getElementById('map-swipe') as HTMLSelectElement).value;
-            if (swipeBase === 'SPACES') {
-                action = state.swipeDirection === 'left' ? 'SPACE_LEFT' : 'SPACE_RIGHT';
-            } else {
-                action = swipeBase;
-            }
+            action = swipeBase === 'SPACES' ? (state.swipeDirection === 'left' ? 'SPACE_LEFT' : 'SPACE_RIGHT') : swipeBase;
         }
-
         if (action && action !== 'NONE') this.triggerAction(action);
     }
 
@@ -494,40 +439,27 @@ class AetherCommandRenderer {
         const now = Date.now();
         const lastTime = this.lastActionTimes.get(action) || 0;
         const debounce = continuous ? 150 : this.DEBOUNCE_MS;
-
         if (!continuous && now - this.lastGlobalActionTime < this.GLOBAL_DEBOUNCE_MS) return;
-
         if (now - lastTime > debounce) {
             this.vfx.createBurst(this.canvas.width / 2, this.canvas.height / 2, 30);
             this.audio.playSuccess();
             window.electronAPI.triggerGestureAction(action);
             this.lastActionTimes.set(action, now);
             this.lastGlobalActionTime = now;
-            this.log(`Action: ${action}`);
+            this.log(`Command: ${action}`);
         }
     }
 
     private log(msg: string) {
         const entry = document.createElement('div');
-        entry.style.fontSize = '0.75rem';
-        entry.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
-        entry.style.padding = '4px 0';
-        entry.style.color = '#8892b0';
-        entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        
+        entry.className = 'log-entry';
+        entry.innerText = `>> ${msg}`;
         if (this.logEl) {
             this.logEl.prepend(entry);
-            while (this.logEl.children.length > 20) this.logEl.removeChild(this.logEl.lastChild!);
+            while (this.logEl.children.length > 15) this.logEl.removeChild(this.logEl.lastChild!);
         }
-
-        try {
-            window.electronAPI.log('info', msg);
-        } catch (e) {
-            console.log('[Fallback Log]', msg);
-        }
+        window.electronAPI.log('info', msg);
     }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    new AetherCommandRenderer();
-});
+window.addEventListener('DOMContentLoaded', () => { new AetherCommandRenderer(); });
