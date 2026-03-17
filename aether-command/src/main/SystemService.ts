@@ -37,6 +37,33 @@ export class SystemService {
             case 'LAUNCH_SPOTIFY':
                 this.runCommand('open -a Spotify');
                 break;
+            case 'VOLUME_UP':
+                this.runAppleScript('set volume output volume (output volume of (get volume settings) + 10)');
+                break;
+            case 'VOLUME_DOWN':
+                this.runAppleScript('set volume output volume (output volume of (get volume settings) - 10)');
+                break;
+            case 'NEXT_TRACK':
+                this.runAppleScript('try\ntell application "Spotify" to next track\non error\ntry\ntell application "Music" to next track\nend try\nend try');
+                break;
+            case 'PREV_TRACK':
+                this.runAppleScript('try\ntell application "Spotify" to previous track\non error\ntry\ntell application "Music" to previous track\nend try\nend try');
+                break;
+            case 'LAUNCHPAD':
+                this.runCommand('open -a Launchpad');
+                break;
+            case 'SHOW_DESKTOP':
+                this.runAppleScript('tell application "System Events" to key code 103'); // F11 Show Desktop
+                break;
+            case 'LAUNCH_CHROME':
+                this.runCommand('open -a "Google Chrome"');
+                break;
+            case 'LAUNCH_VSCODE':
+                this.runCommand('open -a "Visual Studio Code"');
+                break;
+            case 'LAUNCH_TERMINAL':
+                this.runCommand('open -a Terminal');
+                break;
             default:
                 console.warn(`[SystemService] Unknown or unmapped action: ${action}`);
         }
