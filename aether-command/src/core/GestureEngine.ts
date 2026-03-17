@@ -11,6 +11,7 @@ export interface GestureState {
     isFist: boolean;
     isOpenPalm: boolean;
     isPeace: boolean;
+    pinchStartPos: { x: number, y: number } | null;
 }
 
 export class GestureEngine {
@@ -29,13 +30,11 @@ export class GestureEngine {
         const pinkyTip = landmarks[20];
         const pinkyPip = landmarks[18];
 
-        // Normalization Factor: Use distance from wrist to middle MCP (knuckle) as a proxy for hand scale
-        // Landmark 9 is middle mcp
+        // Normalization Factor
         const handScale = this.calculateDistance(wrist, landmarks[9]);
         const norm = (dist: number) => dist / handScale;
 
-        // 1. Pose Classification (Fist vs Open Palm)
-        // Check if tips are closer to wrist than their respective PIP joints
+        // 1. Pose Classification
         const isIndexFolded = this.calculateDistance(indexTip, wrist) < this.calculateDistance(indexPip, wrist);
         const isMiddleFolded = this.calculateDistance(middleTip, wrist) < this.calculateDistance(middlePip, wrist);
         const isRingFolded = this.calculateDistance(ringTip, wrist) < this.calculateDistance(ringPip, wrist);
@@ -45,11 +44,16 @@ export class GestureEngine {
         const isOpenPalm = !isIndexFolded && !isMiddleFolded && !isRingFolded && !isPinkyFolded;
         const isPeace = !isIndexFolded && !isMiddleFolded && isRingFolded && isPinkyFolded;
 
-        // 2. Pinch Detection (Normalized)
+        // 2. Pinch Detection
         const rawPinchDist = this.calculateDistance(thumbTip, indexTip);
         const normPinchDist = norm(rawPinchDist);
-        const isPinching = (normPinchDist < 0.4) && !isFist; // Exclude fist from being a pinch
+        const isPinching = (normPinchDist < 0.45) && !isFist;
         const pinchStrength = Math.max(0, 1 - (normPinchDist / 0.8));
+
+        let pinchStartPos = null;
+        if (isPinching) {
+            pinchStartPos = { x: (thumbTip.x + indexTip.x) / 2, y: (thumbTip.y + indexTip.y) / 2 };
+        }
 
         // 3. Velocity & Directional Swipe
         let swipeDirection: 'left' | 'right' | 'up' | 'down' | null = null;
@@ -59,7 +63,6 @@ export class GestureEngine {
                 y: wrist.y - this.lastWristPos.y
             };
             
-            // Normalize velocity threshold by hand scale too
             const thresh = 0.4 * handScale; 
             if (this.velocity.x > thresh) swipeDirection = 'left';
             else if (this.velocity.x < -thresh) swipeDirection = 'right';
@@ -75,7 +78,8 @@ export class GestureEngine {
             swipeDirection,
             isFist,
             isOpenPalm,
-            isPeace
+            isPeace,
+            pinchStartPos
         };
     }
 

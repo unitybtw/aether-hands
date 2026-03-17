@@ -96,6 +96,10 @@ class AetherCommandRenderer {
     private confEl: HTMLElement;
     private readonly GLOBAL_DEBOUNCE_MS = 800; // Global cooldown between ANY gesture
     private readonly DEBOUNCE_MS = 1500; // Cooldown for the SAME gesture
+    
+    // Continuous Control State
+    private pinchAnchorY: number | null = null;
+    private readonly CONTINUOUS_THRESH = 0.05; // 5% of screen height
 
     constructor() {
         this.video = document.getElementById('webcam') as HTMLVideoElement;
@@ -451,9 +455,34 @@ class AetherCommandRenderer {
     }
 
     private handleGestureState(state: any) {
+        if (!state.isPinching) {
+            this.pinchAnchorY = null;
+        }
+        
         let action: string | null = null;
 
-        if (state.isPinching) action = (document.getElementById('map-pinch') as HTMLSelectElement).value;
+        if (state.isPinching) {
+            action = (document.getElementById('map-pinch') as HTMLSelectElement).value;
+            
+            // Handle Continuous Vertical Control (Volume/Brightness)
+            if (state.pinchStartPos && (action === 'VOLUME_UP' || action === 'VOLUME_DOWN' || action === 'BRIGHTNESS_UP' || action === 'BRIGHTNESS_DOWN')) {
+                if (this.pinchAnchorY === null) {
+                    this.pinchAnchorY = state.pinchStartPos.y;
+                } else {
+                    const deltaY = state.pinchStartPos.y - this.pinchAnchorY;
+                    if (Math.abs(deltaY) > this.CONTINUOUS_THRESH) {
+                        // Invert delta because MediaPipe Y is top-down
+                        const finalAction = deltaY < 0 ? 
+                            (action.includes('VOLUME') ? 'VOLUME_UP' : 'BRIGHTNESS_UP') : 
+                            (action.includes('VOLUME') ? 'VOLUME_DOWN' : 'BRIGHTNESS_DOWN');
+                        
+                        this.triggerAction(finalAction, true); // true = ignore regular debounce
+                        this.pinchAnchorY = state.pinchStartPos.y; // reset anchor for next step
+                    }
+                }
+                return; // Exit as we handled it continuously
+            }
+        } 
         else if (state.isFist) action = (document.getElementById('map-fist') as HTMLSelectElement).value;
         else if (state.isOpenPalm) action = (document.getElementById('map-palm') as HTMLSelectElement).value;
         else if (state.isPeace) action = (document.getElementById('map-peace') as HTMLSelectElement).value;
@@ -471,17 +500,19 @@ class AetherCommandRenderer {
         }
     }
 
-    private triggerAction(action: string) {
+    private triggerAction(action: string, continuous = false) {
         const now = Date.now();
         const lastTime = this.lastActionTimes.get(action) || 0;
+        
+        const debounce = continuous ? 150 : this.DEBOUNCE_MS;
 
         // Apply global debounce (prevents multiple DIFFERENT shortcuts from firing together)
-        if (now - this.lastGlobalActionTime < this.GLOBAL_DEBOUNCE_MS) {
+        if (!continuous && now - this.lastGlobalActionTime < this.GLOBAL_DEBOUNCE_MS) {
             return;
         }
 
         // Debounce to prevent multiple triggers for the SAME continuous gesture
-        if (now - lastTime > this.DEBOUNCE_MS) {
+        if (now - lastTime > debounce) {
             // Visual feedback burst
             const videoRect = this.video.getBoundingClientRect();
             this.vfx.createBurst(this.canvas.width / 2, this.canvas.height / 2, 30);
