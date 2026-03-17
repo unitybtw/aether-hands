@@ -28,7 +28,7 @@
     ]
   },
   "keywords": [],
-  "author": "",
+  "author": "Sirac Simsek",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^22.13.5",

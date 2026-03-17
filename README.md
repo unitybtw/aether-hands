@@ -34,4 +34,4 @@ npm run dev
 
 ---
 
-*Built with ❤️ by unitbtw & Antigravity*
+*Built with ❤️ by Sirac Simsek*
