@@ -129,6 +129,11 @@ class AetherCommandRenderer {
     private statusPills: NodeListOf<Element>;
     private uiElements: Record<string, HTMLElement> = {};
     private mapElements: Record<string, HTMLSelectElement> = {};
+    private isMouseModeActive: boolean = false;
+    private screenWidth: number = 2560; // Fallback
+    private screenHeight: number = 1440; // Fallback
+    private lastMouseUpdate: number = 0;
+    private isPinchHeld: boolean = false;
 
     constructor() {
         this.video = document.getElementById('webcam') as HTMLVideoElement;
@@ -684,8 +689,33 @@ class AetherCommandRenderer {
     private handleGestureState(state: any) {
         if (!state.isPinching) this.pinchAnchorY = null;
         let action: string | null = null;
+        
+        // Virtual Trackpad Logic
+        const palmAction = this.mapElements['map-palm'].value;
+        if (palmAction === 'MOUSE_MODE' && state.isOpenPalm) {
+            this.isMouseModeActive = true;
+            const now = performance.now();
+            if (now - this.lastMouseUpdate > 10) { // Throttle skip to 100Hz
+                // Map camera 0-1 to screen 0-screenSize (Inverted X as camera is mirrored)
+                const targetX = (1 - state.lastWristPos.x) * this.screenWidth;
+                const targetY = state.lastWristPos.y * this.screenHeight;
+                (window.electronAPI as any).mouseMove(targetX, targetY);
+                this.lastMouseUpdate = now;
+            }
+        } else {
+            this.isMouseModeActive = false;
+        }
+
         if (state.isPinching) {
             action = this.mapElements['map-pinch'].value;
+            if (action === 'MOUSE_MODE' || this.isMouseModeActive) {
+                if (!this.isPinchHeld) {
+                    (window.electronAPI as any).mouseClick('left');
+                    this.isPinchHeld = true;
+                    this.log("Mouse: Left Click");
+                }
+                return;
+            }
             if (state.pinchStartPos && (action === 'VOLUME_UP' || action === 'VOLUME_DOWN' || action === 'BRIGHTNESS_UP' || action === 'BRIGHTNESS_DOWN')) {
                 if (this.pinchAnchorY === null) this.pinchAnchorY = state.pinchStartPos.y;
                 else {
@@ -708,7 +738,9 @@ class AetherCommandRenderer {
             const swipeBase = this.mapElements['map-swipe'].value;
             action = swipeBase === 'SPACES' ? (state.swipeDirection === 'left' ? 'SPACE_LEFT' : 'SPACE_RIGHT') : swipeBase;
         }
-        if (action && action !== 'NONE') this.triggerAction(action);
+
+        if (!state.isPinching) this.isPinchHeld = false;
+        if (action && action !== 'NONE' && action !== 'MOUSE_MODE') this.triggerAction(action);
     }
 
     private triggerAction(action: string, continuous = false) {

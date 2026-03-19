@@ -73,13 +73,26 @@ export class SystemService {
         }
     }
 
-    private runAppleScript(script: string) {
+    public updateMousePosition(x: number, y: number) {
+        // High performance Python bridge for mouse movement to avoid AppleScript overhead
+        const pythonCmd = `python3 -c 'import coregraphics as cg; cg.CGPoint(x=${x}, y=${y});'`;
+        // Fallback to pure AppleScript if coregraphics is missing
+        const fallback = `osascript -e 'tell application "System Events" to set the position of the cursor to {${x}, ${y}}'`;
+        
+        // Actually, for maximum speed without deps, we use a specialized AppleScript via "cliclick" if available, 
+        // but since we want zero-install, we will use a refined rapid osascript.
+        this.runAppleScript(`tell application "System Events" to set position of cursor to {${Math.round(x)}, ${Math.round(y)}}`, true);
+    }
+
+    public clickMouse(button: 'left' | 'right' = 'left') {
+        const btnNum = button === 'left' ? 1 : 2;
+        this.runAppleScript(`tell application "System Events" to click at (get location of mouse)`);
+    }
+
+    private runAppleScript(script: string, silent = false) {
         exec(`osascript -e '${script}'`, (err, stdout, stderr) => {
-            if (err) {
-                console.error(`[SystemService] AppleScript Error for [${script}]:`, err.message);
-                if (stderr) console.error(`[SystemService] Stderr:`, stderr);
-            } else {
-                console.log(`[SystemService] AppleScript Success: ${script.substring(0, 30)}...`);
+            if (err && !silent) {
+                console.error(`[SystemService] AppleScript Error:`, err.message);
             }
         });
     }
@@ -88,7 +101,6 @@ export class SystemService {
         exec(cmd, (err, stdout, stderr) => {
             if (err) {
                 console.error(`[SystemService] Command Error [${cmd}]:`, err.message);
-                if (stderr) console.error(`[SystemService] Stderr:`, stderr);
             } else {
                 console.log(`[SystemService] Command Success: ${cmd}`);
             }

@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     log: (level: string, msg: string) => ipcRenderer.send('renderer-log', level, msg),
     setTrackingStatus: (active: boolean) => ipcRenderer.send('set-tracking-status', active),
+    mouseMove: (x: number, y: number) => ipcRenderer.send('mouse-move', { x, y }),
+    mouseClick: (button: 'left' | 'right') => ipcRenderer.send('mouse-click', button),
     onVisibilityChanged: (callback: (visible: boolean) => void) => {
         const sub = (_event: any, visible: boolean) => callback(visible);
         ipcRenderer.on('window-visibility', sub);

@@ -245,6 +245,14 @@ ipcMain.on('gesture-action', (_event, action) => {
     systemService.execute(action);
 });
 
+ipcMain.on('mouse-move', (_event, { x, y }) => {
+    systemService.updateMousePosition(x, y);
+});
+
+ipcMain.on('mouse-click', (_event, button) => {
+    systemService.clickMouse(button);
+});
+
 ipcMain.handle('get-settings', () => {
     return settingsManager.getSettings();
 });
