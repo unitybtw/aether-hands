@@ -105,8 +105,15 @@ const createWindow = () => {
         }
     });
 
-    mainWindow.on('show', () => mainWindow?.webContents.send('window-visibility', true));
-    mainWindow.on('hide', () => mainWindow?.webContents.send('window-visibility', false));
+    mainWindow.on('show', () => {
+        app.dock?.show();
+        mainWindow?.webContents.send('window-visibility', true);
+    });
+    
+    mainWindow.on('hide', () => {
+        app.dock?.hide();
+        mainWindow?.webContents.send('window-visibility', false);
+    });
 };
 
 const createHudWindow = () => {
