@@ -189,53 +189,41 @@ app.whenReady().then(async () => {
 
 // IPC Handlers
 let isKeyHeld = false;
-let activationPollTimer: NodeJS.Timeout | null = null;
+let currentToggleShortcut = 'Option+Space';
 
 const stopActivationPolling = () => {
-    if (activationPollTimer) {
-        clearInterval(activationPollTimer);
-        activationPollTimer = null;
-    }
     isKeyHeld = true; 
     mainWindow?.webContents.send('activation-state-changed', true);
 };
 
-const startActivationPolling = () => {
-    if (activationPollTimer) return;
-    
-    activationPollTimer = setInterval(() => {
-        const settings = settingsManager.getSettings();
-        if (!settings.requireKey) {
-            stopActivationPolling();
-            return;
-        }
-
-        const maskMap: Record<string, number> = {
-            'Command': 1048576,
-            'Option': 524288,
-            'Control': 262144
-        };
-        const mask = maskMap[settings.activationKey] || 1048576;
-        
-        exec("osascript -e 'use framework \"AppKit\"' -e \"current application's |NSEvent|'s modifierFlags()\"", (err, stdout) => {
-            if (!err) {
-                const flags = parseInt(stdout.trim());
-                if (isNaN(flags)) return;
-
-                const held = (flags & mask) !== 0;
-                if (held !== isKeyHeld) {
-                    isKeyHeld = held;
-                    mainWindow?.webContents.send('activation-state-changed', held);
-                }
-            }
-        });
-    }, 150);
-};
-
 const updateActivationPolling = () => {
     const settings = settingsManager.getSettings();
+    
+    // Unregister previously active toggle
+    try { globalShortcut.unregister(currentToggleShortcut); } catch (e) {}
+    
     if (settings.requireKey) {
-        startActivationPolling();
+        // We map modifier settings to a solid toggle shortcut:
+        // Command -> Command+Shift+A
+        // Option -> Option+Shift+A
+        // Control -> Control+Shift+A
+        const maskMap: Record<string, string> = {
+            'Command': 'Command+Shift+A',
+            'Option': 'Option+Shift+A',
+            'Control': 'Control+Shift+A'
+        };
+        currentToggleShortcut = maskMap[settings.activationKey] || 'Option+Shift+A';
+        
+        console.log(`[Main] Registering Tracking Toggle Shortcut: ${currentToggleShortcut}`);
+        globalShortcut.register(currentToggleShortcut, () => {
+            isKeyHeld = !isKeyHeld; // Toggle On/Off instead of "Press & Hold"
+            mainWindow?.webContents.send('activation-state-changed', isKeyHeld);
+            console.log(`[Main] Tracking locked state: ${isKeyHeld ? 'ON' : 'OFF'}`);
+        });
+
+        // Initialize tracking to OFF until they toggle it ON.
+        isKeyHeld = false;
+        mainWindow?.webContents.send('activation-state-changed', false);
     } else {
         stopActivationPolling();
     }

@@ -654,16 +654,16 @@
 
         <h2 style="margin-top: 30px; animation: slide-up-fade 0.5s both; animation-delay: 0.3s;">Activation Control</h2>
         <div class="setting-group" style="--delay: 6;">
-            <label data-tooltip="Enable safety key to prevent background mis-triggers">
-                <input type="checkbox" id="setting-require-key"> Only track when key is held
+            <label data-tooltip="Use a global keyboard shortcut to toggle hand tracking on and off">
+                <input type="checkbox" id="setting-require-key"> Enable Tracking Toggle Shortcut
             </label>
         </div>
         <div class="setting-group" id="group-activation-key" style="opacity: 0.5; pointer-events: none; transition: all 0.3s; --delay: 7;">
-            <label data-tooltip="Modifier key used for activation">Select Activation Key</label>
+            <label data-tooltip="Modifier key used to toggle tracking globally">Select Toggle Shortcut</label>
             <select id="setting-activation-key">
-                <option value="Command">Command (⌘)</option>
-                <option value="Option" selected>Option (⌥)</option>
-                <option value="Control">Control (⌃)</option>
+                <option value="Command">Command + Shift + A</option>
+                <option value="Option" selected>Option + Shift + A</option>
+                <option value="Control">Control + Shift + A</option>
             </select>
         </div>
 
