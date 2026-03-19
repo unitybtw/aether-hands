@@ -5,9 +5,15 @@ export class VFXManager {
     public baseColor: string = "#00e5ff";
     private scanlineOffset = 0;
     private trails: Map<number, { x: number, y: number }[]> = new Map();
+    private extraVfx: boolean = true;
+    private colorCache: Map<string, {r: number, g: number, b: number}> = new Map();
 
     constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
+    }
+
+    public setExtraEffects(enabled: boolean) {
+        this.extraVfx = enabled;
     }
 
     public update() {
@@ -65,15 +71,17 @@ export class VFXManager {
         const wx = (1 - wrist.x) * width;
         const wy = wrist.y * height;
 
-        // Scanning Glow
-        const gradient = this.ctx.createRadialGradient(wx, wy, 20, wx, wy, 150);
-        gradient.addColorStop(0, this.hexToRgba(mainColor, 0.15));
-        gradient.addColorStop(1, 'transparent');
-        this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, width, height);
+        // Scanning Glow (Optional)
+        if (this.extraVfx) {
+            const gradient = this.ctx.createRadialGradient(wx, wy, 20, wx, wy, 150);
+            gradient.addColorStop(0, this.hexToRgba(mainColor, 0.15));
+            gradient.addColorStop(1, 'transparent');
+            this.ctx.fillStyle = gradient;
+            this.ctx.fillRect(0, 0, width, height);
 
-        this.ctx.shadowBlur = 4; // Reduced from 10
-        this.ctx.shadowColor = mainColor;
+            this.ctx.shadowBlur = 4;
+            this.ctx.shadowColor = mainColor;
+        }
         this.ctx.strokeStyle = this.hexToRgba(mainColor, 0.6);
         this.ctx.lineWidth = 2;
 
@@ -136,7 +144,6 @@ export class VFXManager {
         this.ctx.restore();
     }
 
-    private colorCache: Map<string, {r: number, g: number, b: number}> = new Map();
     private hexToRgba(hex: string, alpha: number): string {
         let color = this.colorCache.get(hex);
         if (!color) {

@@ -386,6 +386,25 @@ class AetherCommandRenderer {
                 }
             });
         }
+
+        // Profile Switcher
+        const profileSelect = document.getElementById('setting-profile') as HTMLSelectElement;
+        if (profileSelect) {
+            profileSelect.addEventListener('change', () => {
+                const profile = profileSelect.value;
+                // @ts-ignore
+                const config = (window as any).PROFILES[profile];
+                if (config) {
+                    (document.getElementById('map-pinch') as HTMLSelectElement).value = config.pinch;
+                    (document.getElementById('map-fist') as HTMLSelectElement).value = config.fist;
+                    (document.getElementById('map-palm') as HTMLSelectElement).value = config.palm;
+                    (document.getElementById('map-peace') as HTMLSelectElement).value = config.peace;
+                    (document.getElementById('map-swipe') as HTMLSelectElement).value = config.swipe;
+                    this.handleSettingChange();
+                    this.log(`Profile: Switching to ${profile.toUpperCase()} mode.`);
+                }
+            });
+        }
     }
 
     private handleSettingChange() {
@@ -404,13 +423,17 @@ class AetherCommandRenderer {
             activationKey: (document.getElementById('setting-activation-key') as HTMLSelectElement).value,
             sensitivity: parseFloat((document.getElementById('setting-sensitivity') as HTMLInputElement).value),
             theme: (document.getElementById('setting-theme') as HTMLSelectElement).value,
-            leftHandMode: (document.getElementById('setting-hand-preference') as HTMLInputElement).checked
+            leftHandMode: (document.getElementById('setting-hand-preference') as HTMLInputElement).checked,
+            batterySaver: (document.getElementById('setting-battery-saver') as HTMLInputElement).checked,
+            extraVfx: (document.getElementById('setting-vfx-extra') as HTMLInputElement).checked
         };
         this.lerpAmount = settings.smoothing;
         this.smoother.setFactor(settings.smoothing);
         this.leftHandMode = settings.leftHandMode;
         this.applyTheme(settings.theme as string);
         this.tracker.updateOptions(settings.sensitivity);
+        this.vfx.setExtraEffects(settings.extraVfx);
+        (window as any).isBatterySaverEnabled = settings.batterySaver;
         window.electronAPI.saveSettings(settings);
 
         if (oldHand !== this.leftHandMode) {
@@ -458,7 +481,10 @@ class AetherCommandRenderer {
         this.vfx.update();
 
         try {
-            const skipRate = this.isVisible ? 1 : 4; // Better battery saving
+            let skipRate = this.isVisible ? 1 : 12;
+            // @ts-ignore
+            if (this.isVisible && (window as any).isBatterySaverEnabled) skipRate = 2; // 30FPS base
+            
             if (this.frameCount % skipRate === 0) {
                 // Adaptive Light Normalization - Occurs every 2 seconds roughly
                 if (this.frameCount % 120 === 0) {

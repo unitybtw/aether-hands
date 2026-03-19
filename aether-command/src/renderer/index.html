@@ -429,7 +429,23 @@
 
     <!-- Right Panel: Configurations -->
     <div class="panel right-content">
-        <h2>Command Mappings</h2>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+            <h2 style="margin-bottom: 0;">Command Mappings</h2>
+            <select id="setting-profile" style="width: auto; padding: 6px 12px; font-size: 11px; background: rgba(0, 229, 255, 0.1); border-color: var(--accent-primary); color: #fff; margin: 0; border-radius: 8px;">
+                <option value="default">Default: OS</option>
+                <option value="media">Media Mode</option>
+                <option value="coding">Focus: Code</option>
+            </select>
+        </div>
+        
+        <script>
+            // Profile Definition Data (Normally this would move to a separate config)
+            const PROFILES = {
+                default: { pinch: 'PLAY_PAUSE', fist: 'MUTE_TOGGLE', palm: 'MISSION_CONTROL', peace: 'LAUNCH_SPOTIFY', swipe: 'SWITCH_SPACE' },
+                media: { pinch: 'PLAY_PAUSE', fist: 'MUTE_TOGGLE', palm: 'VOLUME_UP', peace: 'NEXT_TRACK', swipe: 'PREV_TRACK' },
+                coding: { pinch: 'LAUNCH_VSCODE', fist: 'LAUNCH_TERMINAL', palm: 'LAUNCH_CHROME', peace: 'LOCK_SCREEN', swipe: 'MISSION_CONTROL' }
+            };
+        </script>
         
         <div class="gesture-row">
             <div class="gesture-label"><span class="gesture-icon">🤏</span> <span>Pinch</span></div>
@@ -573,8 +589,16 @@
             <label style="flex: 1;" data-tooltip="Auto-run when you log into your Mac">
                 <input type="checkbox" id="setting-autolaunch"> Launch at Login
             </label>
+            <label style="flex: 1;" data-tooltip="Lower CPU usage by reducing tracking frequency">
+                <input type="checkbox" id="setting-battery-saver"> Battery Saver
+            </label>
+        </div>
+        <div class="setting-group" style="display: flex; gap: 20px;">
             <label style="flex: 1;" data-tooltip="Flip logic for left-handed users">
                 <input type="checkbox" id="setting-hand-preference"> Left Hand Mode
+            </label>
+            <label style="flex: 1;" data-tooltip="Enable cinematic hand glows (expensive)">
+                <input type="checkbox" id="setting-vfx-extra" checked> Extra VFX
             </label>
         </div>
 

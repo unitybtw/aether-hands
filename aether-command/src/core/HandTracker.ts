@@ -68,8 +68,12 @@ export class HandTracker {
          * Skip 1 frame if hand found to maintain high FPS but save cycles.
          */
         this.frameCount++;
-        if (this.lastHandCount > 0 && this.frameCount % 2 !== 0) {
-            return null; 
+        
+        // If hand was recently visible, keep HIGH FPS (no skip)
+        // If hand lost for some time, skip frames increasingly
+        if (this.lastHandCount === 0) {
+            const skip = this.frameCount % 5 !== 0; // Only check 20% of frames (roughly 6-10 FPS)
+            if (skip) return null;
         }
 
         const results = this.handLandmarker.detectForVideo(video, timestamp);
