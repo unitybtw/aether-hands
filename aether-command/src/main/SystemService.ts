@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, spawn, ChildProcess } from 'child_process';
 
 export class SystemService {
     public execute(action: string) {
@@ -73,16 +73,31 @@ export class SystemService {
         }
     }
 
+    private mouseDaemon: ChildProcess | null = null;
+
+    private getMouseDaemon(): ChildProcess {
+        if (!this.mouseDaemon) {
+            const binPath = require('path').join(__dirname, 'mouse_ctrl');
+            this.mouseDaemon = spawn(binPath);
+            this.mouseDaemon.on('exit', () => { this.mouseDaemon = null; });
+            this.mouseDaemon.on('error', (err) => {
+                console.error('[SystemService] Mouse daemon error:', err);
+                this.mouseDaemon = null;
+            });
+        }
+        return this.mouseDaemon;
+    }
+
     public updateMousePosition(x: number, y: number) {
-        // High performance native C module for zero-latency cursor movement
-        const binPath = require('path').join(__dirname, 'mouse_ctrl');
-        exec(`"${binPath}" ${Math.round(x)} ${Math.round(y)}`);
+        // High performance native C module for zero-latency cursor movement via stdin daemon
+        const daemon = this.getMouseDaemon();
+        if (daemon.stdin) daemon.stdin.write(`${Math.round(x)} ${Math.round(y)}\n`);
     }
 
     public clickMouse(button: 'left' | 'right' = 'left') {
-        // High performance native C module for zero-latency clicks
-        const binPath = require('path').join(__dirname, 'mouse_ctrl');
-        exec(`"${binPath}" click`);
+        // High performance native C module for zero-latency clicks via stdin daemon
+        const daemon = this.getMouseDaemon();
+        if (daemon.stdin) daemon.stdin.write(`click\n`);
     }
 
     private runAppleScript(script: string, silent = false) {
