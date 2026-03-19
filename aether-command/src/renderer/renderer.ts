@@ -519,8 +519,6 @@ class AetherCommandRenderer {
             return;
         }
 
-        if (!this.isVisible) await new Promise(resolve => setTimeout(resolve, 66));
-        
         const cw = this.canvas.clientWidth;
         const ch = this.canvas.clientHeight;
         if (this.canvas.width !== cw || this.canvas.height !== ch) {
@@ -532,9 +530,10 @@ class AetherCommandRenderer {
         this.vfx.update();
 
         try {
-            let skipRate = this.isVisible ? 1 : 12;
+            let skipRate = 1;
             // @ts-ignore
-            if (this.isVisible && (window as any).isBatterySaverEnabled) skipRate = 2; // 30FPS base
+            if ((window as any).isBatterySaverEnabled) skipRate = 2; // 30FPS base
+            if (!this.isVisible) skipRate = 2; // 15FPS in background (since loop is 30fps)
             
             if (this.frameCount % skipRate === 0) {
                 // Adaptive Light Normalization - Occurs every 2 seconds roughly
