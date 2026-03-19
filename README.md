@@ -1,4 +1,5 @@
-# 🌌 Aether Ecosystem
+# <img src="./aether-command/src/assets/icon.png" width="48"> 🌌 Aether Ecosystem
+![Aether Command Preview](./aether-command/src/assets/preview.png)
 
 Welcome to the **Aether** project collection. This repository houses the next generation of gestural control tools, bringing touchless interaction to both the web and the desktop.
 
