@@ -1,4 +1,5 @@
-# 📟 Project: Aether-Command
+# <img src="./src/assets/icon.png" width="48"> Project: Aether-Command
+![Aether Command UI Preview](./src/assets/preview.png)
 ### *The Premium Gestural Controller for macOS*
 
 Aether-Command is a native macOS application that brings the future of interaction to your desktop. By leveraging the **Aether-Hands** engine, it allows you to control your system, media, and spaces with intuitive hand gestures—no touch required.
