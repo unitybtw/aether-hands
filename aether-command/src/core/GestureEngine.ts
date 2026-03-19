@@ -41,14 +41,15 @@ export class GestureEngine {
         const isPinkyFolded = this.calculateDistance(pinkyTip, wrist) < this.calculateDistance(pinkyPip, wrist);
 
         const isFist = isIndexFolded && isMiddleFolded && isRingFolded && isPinkyFolded;
-        const isOpenPalm = !isIndexFolded && !isMiddleFolded && !isRingFolded && !isPinkyFolded;
-        const isPeace = !isIndexFolded && !isMiddleFolded && isRingFolded && isPinkyFolded;
+        const isPeace = !isIndexFolded && !isMiddleFolded && isRingFolded && isPinkyFolded && !isFist;
 
         // 2. Pinch Detection
         const rawPinchDist = this.calculateDistance(thumbTip, indexTip);
         const normPinchDist = norm(rawPinchDist);
-        const isPinching = (normPinchDist < 0.45) && !isFist;
+        const isPinching = (normPinchDist < 0.45) && !isFist && !isPeace;
         const pinchStrength = Math.max(0, 1 - (normPinchDist / 0.8));
+
+        const isOpenPalm = !isIndexFolded && !isMiddleFolded && !isRingFolded && !isPinkyFolded && !isPinching && !isFist && !isPeace;
 
         let pinchStartPos = null;
         if (isPinching) {
@@ -84,10 +85,9 @@ export class GestureEngine {
     }
 
     private calculateDistance(p1: any, p2: any): number {
-        return Math.sqrt(
-            Math.pow(p1.x - p2.x, 2) + 
-            Math.pow(p1.y - p2.y, 2) + 
-            Math.pow(p1.z - p2.z, 2)
-        );
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dz = p1.z - p2.z;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 }

@@ -237,8 +237,13 @@ class AetherCommandRenderer {
         this.stabilityData.push(stability);
         if (this.stabilityData.length > 50) this.stabilityData.shift();
 
-        const w = this.stabilityCanvas.width = this.stabilityCanvas.clientWidth;
-        const h = this.stabilityCanvas.height = this.stabilityCanvas.clientHeight;
+        if (this.stabilityCanvas.width !== this.stabilityCanvas.clientWidth || 
+            this.stabilityCanvas.height !== this.stabilityCanvas.clientHeight) {
+            this.stabilityCanvas.width = this.stabilityCanvas.clientWidth;
+            this.stabilityCanvas.height = this.stabilityCanvas.clientHeight;
+        }
+        const w = this.stabilityCanvas.width;
+        const h = this.stabilityCanvas.height;
         const ctx = this.stabilityCtx;
 
         ctx.clearRect(0, 0, w, h);

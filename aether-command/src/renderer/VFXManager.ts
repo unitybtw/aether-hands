@@ -18,6 +18,14 @@ export class VFXManager {
 
     public update() {
         this.scanlineOffset = (this.scanlineOffset + 1) % 100;
+        
+        // Decay trails if not updated
+        this.trails.forEach((trail, idx) => {
+            if (trail.length > 0) {
+                trail.shift();
+            }
+        });
+
         if (this.particles.length === 0) return;
         
         for (let i = this.particles.length - 1; i >= 0; i--) {
