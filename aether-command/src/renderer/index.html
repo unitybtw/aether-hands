@@ -131,21 +131,6 @@
             transform: scaleX(-1);
             opacity: 0.8;
         }
-        #status-overlay {
-            position: absolute;
-            bottom: 12px;
-            right: 12px;
-            background: rgba(0,0,0,0.7);
-            padding: 6px 12px;
-            border-radius: 10px;
-            font-size: 0.75rem;
-            color: #00ff00;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(0, 255, 0, 0.2);
-        }
         #status-overlay::before {
             content: "";
             display: inline-block;
@@ -385,21 +370,23 @@
         <div class="feed-container">
             <video id="webcam" autoplay playsinline muted></video>
             <canvas id="vfx-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-            <div id="status-overlay">Initializing Tracker...</div>
-            <div id="gesture-feedback" style="position: absolute; top: 10px; left: 10px; background: rgba(0, 229, 255, 0.1); padding: 6px 16px; border-radius: 20px; font-weight: 600; color: var(--accent-primary); opacity: 0; transition: all 0.3s; border: 1px solid var(--accent-primary); backdrop-filter: blur(10px); font-size: 0.9rem;">
+            <div id="status-overlay" style="position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 10px; font-size: 0.75rem; color: #00ff00; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(5px); border: 1px solid rgba(0, 255, 0, 0.2);">Initializing Tracker...</div>
+            <div id="gesture-feedback" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0, 229, 255, 0.15); padding: 8px 24px; border-radius: 24px; font-weight: 600; color: var(--accent-primary); opacity: 0; transition: all 0.3s; border: 1px solid var(--accent-primary); backdrop-filter: blur(10px); font-size: 0.95rem; box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);">
                 ACTIVE: <span id="last-gesture">-</span>
             </div>
-            <div id="status-activation" style="position: absolute; bottom: 12px; left: 12px; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.6); padding: 6px 14px; border-radius: 12px; font-size: 11px; border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(10px);">
+            <div id="status-activation" style="position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.6); padding: 6px 14px; border-radius: 12px; font-size: 11px; border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(10px);">
                 <div id="activation-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #4CAF50; box-shadow: 0 0 10px #4CAF50;"></div>
                 <span id="activation-text" style="color: #fff; opacity: 0.8;">Tracking Live</span>
             </div>
-            <div id="debug-info" style="position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.4); pointer-events: none;">
+            <div id="debug-info" style="position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.4); pointer-events: none;">
                 <div id="status-quality" style="display: flex; align-items: center; gap: 6px; padding: 2px 8px; background: rgba(0,0,0,0.4); border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 2px;">
                     <span style="opacity: 0.6;">SIGNAL:</span> 
                     <span id="quality-text" style="color: var(--accent-primary); font-weight: 600;">SEARCHING...</span>
                 </div>
-                <span id="debug-fps">FPS: --</span>
-                <span id="debug-conf">CONF: --</span>
+                <div style="display: flex; gap: 10px; background: rgba(0,0,0,0.4); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">
+                    <span id="debug-fps">FPS: --</span>
+                    <span id="debug-conf">CONF: --</span>
+                </div>
             </div>
             <div id="proximity-warning" style="position: absolute; bottom: 50%; left: 10%; right: 10%; background: rgba(255, 75, 43, 0.9); color: white; padding: 10px; border-radius: 12px; font-weight: 600; text-align: center; opacity: 0; transition: opacity 0.3s; pointer-events: none; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(10px); font-size: 0.8rem;">
                 ⚠️ HAND TOO CLOSE - MOVE BACK
