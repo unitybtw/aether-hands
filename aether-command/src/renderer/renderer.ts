@@ -124,6 +124,8 @@ class AetherCommandRenderer {
     private isVisible: boolean = true;
     private readonly SUSPEND_TIMEOUT_MS = 300000;
     private currentBrightness: number = 0;
+    private brightnessCanvas = document.createElement('canvas');
+    private statusPills: NodeListOf<Element>;
 
     constructor() {
         this.video = document.getElementById('webcam') as HTMLVideoElement;
@@ -137,6 +139,9 @@ class AetherCommandRenderer {
         this.tracker = new HandTracker();
         this.gesture = new GestureEngine();
         this.vfx = new VFXManager(this.ctx);
+        this.statusPills = document.querySelectorAll('.status-pill');
+        this.brightnessCanvas.width = 20;
+        this.brightnessCanvas.height = 15;
         
         this.lastFrameTime = performance.now();
         this.fpsEl = document.getElementById('debug-fps')!;
@@ -184,10 +189,7 @@ class AetherCommandRenderer {
 
     private estimateBrightness() {
         if (!this.video.videoWidth) return;
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 20;
-        tempCanvas.height = 15;
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = this.brightnessCanvas.getContext('2d');
         if (!tempCtx) return;
         
         tempCtx.drawImage(this.video, 0, 0, 20, 15);
@@ -445,7 +447,7 @@ class AetherCommandRenderer {
     private async initCamera(): Promise<boolean> {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: 640, height: 480, facingMode: "user" } 
+                video: { width: 320, height: 240, facingMode: "user" } 
             });
             this.video.srcObject = stream;
             return new Promise((resolve) => {
@@ -602,7 +604,7 @@ class AetherCommandRenderer {
     }
 
     private clearStatusHighlights() {
-        document.querySelectorAll('.status-pill').forEach(p => p.classList.remove('active'));
+        this.statusPills.forEach(p => p.classList.remove('active'));
     }
 
     private handleGestureState(state: any) {

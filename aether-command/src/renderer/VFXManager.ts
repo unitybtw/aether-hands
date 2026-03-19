@@ -118,12 +118,11 @@ export class VFXManager {
                 this.ctx.stroke();
             }
 
-            this.ctx.beginPath();
-            this.ctx.arc(x, y, 3, 0, Math.PI * 2);
+            // Draw Joint (Optimized Rect)
             this.ctx.fillStyle = "#fff";
-            this.ctx.fill();
+            this.ctx.fillRect(x - 2, y - 2, 4, 4);
 
-            if ([4, 8, 12, 16, 20].includes(idx)) {
+            if (this.extraVfx && [4, 8, 12, 16, 20].includes(idx)) {
                 this.ctx.strokeStyle = this.hexToRgba(mainColor, 0.8);
                 this.ctx.lineWidth = 1;
                 this.ctx.beginPath();
