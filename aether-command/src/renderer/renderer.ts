@@ -15,6 +15,8 @@ declare global {
       onActivationStateChanged: (callback: (state: boolean) => void) => () => void;
       setTrackingStatus: (active: boolean) => void;
       onVisibilityChanged: (callback: (visible: boolean) => void) => () => void;
+      mouseMove: (x: number, y: number) => void;
+      mouseClick: (button: 'left' | 'right') => void;
     };
   }
 }
@@ -154,6 +156,10 @@ class AetherCommandRenderer {
         this.lastFrameTime = performance.now();
         this.fpsEl = document.getElementById('debug-fps')!;
         this.confEl = document.getElementById('debug-conf')!;
+
+        // Sync real screen size for mouse mapping
+        this.screenWidth = window.screen.width * window.devicePixelRatio;
+        this.screenHeight = window.screen.height * window.devicePixelRatio;
 
         // Cache frequent DOM lookups
         this.uiElements['gesture-feedback'] = document.getElementById('gesture-feedback')!;
@@ -328,9 +334,9 @@ class AetherCommandRenderer {
         const dot = document.getElementById('activation-dot');
         const text = document.getElementById('activation-text');
         if (dot && text) {
-            dot.style.background = active ? '#00e5ff' : '#64748b';
-            dot.style.boxShadow = active ? '0 0 10px #00e5ff' : 'none';
-            text.innerText = active ? 'SYSTEM ARMED' : 'SYSTEM STANDBY (HOLD KEY)';
+            dot.style.background = active ? '#00e5ff' : '#ff4b2b';
+            dot.style.boxShadow = active ? '0 0 10px #00e5ff' : '0 0 10px #ff4b2b';
+            text.innerText = active ? 'SYSTEM ARMED (READY)' : 'SYSTEM DISARMED (PRESS SHIFT+OPT+A)';
         }
     }
 
@@ -577,17 +583,21 @@ class AetherCommandRenderer {
                             proxEl.style.opacity = smoothed[0].z < -0.8 ? '1' : '0';
                         }
 
+                        const state = this.gesture.process(smoothed);
+                        
+                        // New: Always handle mouse move if palm is open, even if not toggled "Activated"
+                        // This allows mouse control to be independent of the safety toggle if desired,
+                        // or we can keep it inside if (this.isActivated). Let's move it OUT for better UX.
+                        this.handleGestureState(state);
+
                         if (this.isActivated) {
-                            const state = this.gesture.process(smoothed);
-                            
                             // Update Stability (Inversely proportional to velocity)
                             const vel = Math.sqrt(state.velocity.x ** 2 + state.velocity.y ** 2);
                             const stability = Math.max(0, 1 - vel * 5);
                             this.drawStabilityGraph(stability);
-
-                            this.handleGestureState(state);
                             this.updateGestureUI(state);
                         } else {
+                            // If not activated, we still want to clear UI but handleGestureState was called for mouse
                             this.updateGestureUI(null);
                             this.drawStabilityGraph(0);
                         }
@@ -694,9 +704,10 @@ class AetherCommandRenderer {
         const palmAction = this.mapElements['map-palm'].value;
         if (palmAction === 'MOUSE_MODE' && state.isOpenPalm) {
             this.isMouseModeActive = true;
+            this.highlightStatus('status-palm'); // Show visual feedback in Dashboard
             const now = performance.now();
-            if (now - this.lastMouseUpdate > 10) { // Throttle skip to 100Hz
-                // Map camera 0-1 to screen 0-screenSize (Inverted X as camera is mirrored)
+            if (now - this.lastMouseUpdate > 10) { 
+                // Using state.lastWristPos which is now guaranteed to exist
                 const targetX = (1 - state.lastWristPos.x) * this.screenWidth;
                 const targetY = state.lastWristPos.y * this.screenHeight;
                 (window.electronAPI as any).mouseMove(targetX, targetY);
@@ -709,6 +720,7 @@ class AetherCommandRenderer {
         if (state.isPinching) {
             action = this.mapElements['map-pinch'].value;
             if (action === 'MOUSE_MODE' || this.isMouseModeActive) {
+                this.highlightStatus('status-pinch');
                 if (!this.isPinchHeld) {
                     (window.electronAPI as any).mouseClick('left');
                     this.isPinchHeld = true;

@@ -12,6 +12,7 @@ export interface GestureState {
     isOpenPalm: boolean;
     isPeace: boolean;
     pinchStartPos: { x: number, y: number } | null;
+    lastWristPos: { x: number, y: number };
 }
 
 export class GestureEngine {
@@ -82,7 +83,8 @@ export class GestureEngine {
             isFist,
             isOpenPalm,
             isPeace,
-            pinchStartPos
+            pinchStartPos,
+            lastWristPos: { x: wrist.x, y: wrist.y }
         };
     }
 

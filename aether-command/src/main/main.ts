@@ -225,7 +225,8 @@ const updateActivationPolling = () => {
         isKeyHeld = false;
         mainWindow?.webContents.send('activation-state-changed', false);
     } else {
-        stopActivationPolling();
+        isKeyHeld = true; // IMPORTANT: Must be true if no key is required
+        mainWindow?.webContents.send('activation-state-changed', true);
     }
 };
 

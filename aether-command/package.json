@@ -5,7 +5,7 @@
   "main": "dist/main/main.js",
   "scripts": {
     "start": "npm run build && env -u ELECTRON_RUN_AS_NODE electron .",
-    "build": "tsc && esbuild src/renderer/renderer.ts --bundle --outfile=dist/renderer/renderer.js --platform=browser --format=iife",
+    "build": "tsc && gcc -framework ApplicationServices -framework CoreGraphics src/main/mouse_ctrl.c -o dist/main/mouse_ctrl && esbuild src/renderer/renderer.ts --bundle --outfile=dist/renderer/renderer.js --platform=browser --format=iife",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
