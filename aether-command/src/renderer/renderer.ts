@@ -199,6 +199,37 @@ class AetherCommandRenderer {
             brightness += (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
         }
         this.currentBrightness = brightness / (20 * 15);
+        
+        // Auto-Gain: Adjust video filter if light is poor
+        if (this.currentBrightness < 30) {
+            this.video.style.filter = `brightness(2.2) contrast(1.5) saturate(1.2)`;
+        } else if (this.currentBrightness < 50) {
+            this.video.style.filter = `brightness(1.5) contrast(1.2)`;
+        } else {
+            this.video.style.filter = `none`;
+        }
+    }
+
+    private updateQualityUI(confidence: number, isHandFound: boolean) {
+        const qualityText = document.getElementById('quality-text');
+        if (!qualityText) return;
+        
+        if (!isHandFound) {
+            qualityText.innerText = 'SEARCHING...';
+            qualityText.style.color = 'rgba(255,255,255,0.4)';
+            return;
+        }
+
+        if (confidence < 0.6) {
+            qualityText.innerText = 'POOR';
+            qualityText.style.color = '#ff4b2b';
+        } else if (confidence < 0.8) {
+            qualityText.innerText = 'FAIR';
+            qualityText.style.color = '#ff9800';
+        } else {
+            qualityText.innerText = 'EXCELLENT';
+            qualityText.style.color = '#00ffcc';
+        }
     }
 
     private drawStabilityGraph(stability: number) {
@@ -538,11 +569,14 @@ class AetherCommandRenderer {
                             this.updateGestureUI(null);
                             this.drawStabilityGraph(0);
                         }
+                        this.updateQualityUI(confidence, true);
+                        this.lastHandDetectionTime = Date.now();
                     } else {
                         this.updateGestureUI(null);
+                        this.updateQualityUI(confidence, false); // Still update quality even if not requested hand
                     }
-                    this.lastHandDetectionTime = Date.now();
                 } else {
+                    this.updateQualityUI(0, false);
                     if (Date.now() - this.lastHandDetectionTime > 2000 && this.lastHandDetectionTime !== 0) {
                         window.electronAPI.setTrackingStatus(false);
                         this.lastHandDetectionTime = 0;
@@ -557,6 +591,16 @@ class AetherCommandRenderer {
         const now = performance.now();
         const delta = now - this.lastFrameTime;
         this.lastFrameTime = now;
+        
+        // Thermal / Performance Guard
+        if (delta > 100) { // If frame takes > 100ms (sub 10FPS)
+            this.frameCount++; 
+            if (this.frameCount % 5 === 0) {
+               (window as any).isBatterySaverEnabled = true;
+               this.log('System: Thermal / Performance limit hit. Auto-scaling initiated.');
+            }
+        }
+        
         if (this.frameCount % 30 === 0) this.fpsEl.innerText = `FPS: ${Math.round(1000 / delta)}`;
         this.frameCount++;
         requestAnimationFrame(() => this.loop());
