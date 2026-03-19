@@ -602,7 +602,10 @@ class AetherCommandRenderer {
                     }
                 }
             }
-        } catch (e) { console.error(e); }
+        } catch (e: any) { 
+            this.log(`Critical Error: ${e && e.message ? e.message : 'Unknown JS crash'}`); 
+            console.error(e); 
+        }
 
         if (this.isVisible) this.vfx.draw();
 

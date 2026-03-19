@@ -78,6 +78,11 @@ export class HandTracker {
 
         const results = this.handLandmarker.detectForVideo(video, timestamp);
         this.lastHandCount = results.landmarks ? results.landmarks.length : 0;
-        return results;
+        
+        return {
+            landmarks: results.landmarks || [],
+            worldLandmarks: results.worldLandmarks || [],
+            handedness: results.handedness || []
+        } as unknown as HandResults;
     }
 }
