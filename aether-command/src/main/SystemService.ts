@@ -5,7 +5,7 @@ export class SystemService {
         console.log(`[SystemService] Executing action: ${action}`);
         switch (action) {
             case 'PLAY_PAUSE':
-                this.runAppleScript('tell application "System Events" to key code 103'); // Media Play/Pause
+                this.runAppleScript('if application "Spotify" is running then\ntell application "Spotify" to playpause\nelse if application "Music" is running then\ntell application "Music" to playpause\nend if');
                 break;
             case 'MUTE_TOGGLE':
                 this.runAppleScript('set volume output muted not (output muted of (get volume settings))');
@@ -44,10 +44,10 @@ export class SystemService {
                 this.runAppleScript('set volume output volume (output volume of (get volume settings) - 10)');
                 break;
             case 'NEXT_TRACK':
-                this.runAppleScript('try\ntell application "Spotify" to next track\non error\ntry\ntell application "Music" to next track\nend try\nend try');
+                this.runAppleScript('if application "Spotify" is running then\ntell application "Spotify" to next track\nelse if application "Music" is running then\ntell application "Music" to next track\nend if');
                 break;
             case 'PREV_TRACK':
-                this.runAppleScript('try\ntell application "Spotify" to previous track\non error\ntry\ntell application "Music" to previous track\nend try\nend try');
+                this.runAppleScript('if application "Spotify" is running then\ntell application "Spotify" to previous track\nelse if application "Music" is running then\ntell application "Music" to previous track\nend if');
                 break;
             case 'LAUNCHPAD':
                 this.runCommand('open -a Launchpad');
