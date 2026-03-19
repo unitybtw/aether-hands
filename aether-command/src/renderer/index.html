@@ -36,6 +36,14 @@
             overflow: hidden;
             transition: background-color 0.5s ease;
         }
+        @keyframes slide-up-fade {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scale-in {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
         body.gesture-active {
             background-color: rgba(0, 229, 255, 0.05);
         }
@@ -83,11 +91,13 @@
             display: flex;
             flex-direction: column;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
             height: 100%;
             box-sizing: border-box;
             min-height: 0;
+            animation: scale-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+        .panel:nth-child(2) { animation-delay: 0.1s; }
         .panel:hover {
             border-color: rgba(255, 255, 255, 0.15);
             box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6);
@@ -272,11 +282,16 @@
             background: rgba(255, 255, 255, 0.03);
             border-radius: 16px;
             border: 1px solid rgba(255, 255, 255, 0.03);
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation-delay: calc(var(--delay, 0) * 0.05s);
+            transform-origin: center right;
         }
         .gesture-row:hover {
             background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateX(4px);
+            box-shadow: -4px 4px 15px rgba(0,0,0,0.2);
         }
         .gesture-label {
             display: flex;
@@ -473,7 +488,7 @@
             };
         </script>
         
-        <div class="gesture-row">
+        <div class="gesture-row" style="--delay: 1;">
             <div class="gesture-label"><span class="gesture-icon">🤏</span> <span>Pinch</span></div>
             <select id="map-pinch">
                 <option value="PLAY_PAUSE" selected>Play / Pause Media</option>
@@ -498,7 +513,7 @@
             </select>
         </div>
 
-        <div class="gesture-row">
+        <div class="gesture-row" style="--delay: 2;">
             <div class="gesture-label"><span class="gesture-icon">✊</span> <span>Fist</span></div>
             <select id="map-fist">
                 <option value="PLAY_PAUSE">Play / Pause Media</option>
@@ -523,7 +538,7 @@
             </select>
         </div>
 
-        <div class="gesture-row">
+        <div class="gesture-row" style="--delay: 3;">
             <div class="gesture-label"><span class="gesture-icon">✋</span> <span>Open Palm</span></div>
             <select id="map-palm">
                 <option value="PLAY_PAUSE">Play / Pause Media</option>
@@ -548,7 +563,7 @@
             </select>
         </div>
 
-        <div class="gesture-row">
+        <div class="gesture-row" style="--delay: 4;">
             <div class="gesture-label"><span class="gesture-icon">✌️</span> <span>Peace Sign</span></div>
             <select id="map-peace">
                 <option value="PLAY_PAUSE">Play / Pause Media</option>
@@ -573,7 +588,7 @@
             </select>
         </div>
 
-        <div class="gesture-row">
+        <div class="gesture-row" style="--delay: 5;">
             <div class="gesture-label"><span class="gesture-icon">↔️</span> <span>Swipes</span></div>
             <select id="map-swipe">
                 <option value="SPACES" selected>Switch Desktop Spaces</option>
@@ -599,19 +614,19 @@
             </select>
         </div>
 
-        <h2 style="margin-top: 30px;">Engine Settings</h2>
+        <h2 style="margin-top: 30px; animation: slide-up-fade 0.5s both;">Engine Settings</h2>
         
-        <div class="setting-group">
+        <div class="setting-group" style="--delay: 1;">
             <label data-tooltip="Adjust the delay/smoothness of hand tracking">Tracking Smoothing</label>
             <input type="range" id="setting-smoothing" min="0.1" max="1.0" step="0.1" value="0.5">
         </div>
 
-        <div class="setting-group">
+        <div class="setting-group" style="--delay: 2;">
             <label data-tooltip="Minimum score required to recognize a hand (higher = stricter)">Detection Sensitivity</label>
             <input type="range" id="setting-sensitivity" min="0.5" max="0.95" step="0.05" value="0.8">
         </div>
 
-        <div class="setting-group" style="display: flex; gap: 20px;">
+        <div class="setting-group" style="display: flex; gap: 20px; --delay: 3;">
             <label style="flex: 1;" data-tooltip="Auto-run when you log into your Mac">
                 <input type="checkbox" id="setting-autolaunch"> Launch at Login
             </label>
@@ -619,7 +634,7 @@
                 <input type="checkbox" id="setting-battery-saver"> Battery Saver
             </label>
         </div>
-        <div class="setting-group" style="display: flex; gap: 20px;">
+        <div class="setting-group" style="display: flex; gap: 20px; --delay: 4;">
             <label style="flex: 1;" data-tooltip="Flip logic for left-handed users">
                 <input type="checkbox" id="setting-hand-preference"> Left Hand Mode
             </label>
@@ -628,8 +643,8 @@
             </label>
         </div>
 
-        <h2 style="margin-top: 30px;">Visual Theme</h2>
-        <div class="setting-group">
+        <h2 style="margin-top: 30px; animation: slide-up-fade 0.5s both; animation-delay: 0.25s;">Visual Theme</h2>
+        <div class="setting-group" style="--delay: 5;">
             <select id="setting-theme">
                 <option value="cyberpunk" selected>Cyberpunk Carbon</option>
                 <option value="minimal">Minimalist Snow</option>
@@ -637,13 +652,13 @@
             </select>
         </div>
 
-        <h2 style="margin-top: 30px;">Activation Control</h2>
-        <div class="setting-group">
+        <h2 style="margin-top: 30px; animation: slide-up-fade 0.5s both; animation-delay: 0.3s;">Activation Control</h2>
+        <div class="setting-group" style="--delay: 6;">
             <label data-tooltip="Enable safety key to prevent background mis-triggers">
                 <input type="checkbox" id="setting-require-key"> Only track when key is held
             </label>
         </div>
-        <div class="setting-group" id="group-activation-key" style="opacity: 0.5; pointer-events: none; transition: all 0.3s;">
+        <div class="setting-group" id="group-activation-key" style="opacity: 0.5; pointer-events: none; transition: all 0.3s; --delay: 7;">
             <label data-tooltip="Modifier key used for activation">Select Activation Key</label>
             <select id="setting-activation-key">
                 <option value="Command">Command (⌘)</option>
