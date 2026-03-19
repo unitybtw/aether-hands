@@ -111,7 +111,8 @@ class AetherCommandRenderer {
     private confEl: HTMLElement;
     private stabilityCanvas: HTMLCanvasElement;
     private stabilityCtx: CanvasRenderingContext2D;
-    private stabilityData: number[] = new Array(50).fill(0);
+    private stabilityData = new Float32Array(50);
+    private lastFps: number = 0;
     private gestureLocked: boolean = false;
     private readonly GLOBAL_DEBOUNCE_MS = 800;
     private readonly DEBOUNCE_MS = 1500;
@@ -245,8 +246,8 @@ class AetherCommandRenderer {
 
     private drawStabilityGraph(stability: number) {
         if (!this.isVisible) return;
-        this.stabilityData.push(stability);
-        if (this.stabilityData.length > 50) this.stabilityData.shift();
+        this.stabilityData.copyWithin(0, 1);
+        this.stabilityData[49] = stability;
 
         if (this.stabilityCanvas.width !== this.stabilityCanvas.clientWidth || 
             this.stabilityCanvas.height !== this.stabilityCanvas.clientHeight) {
@@ -262,12 +263,13 @@ class AetherCommandRenderer {
         ctx.strokeStyle = this.vfx.baseColor;
         ctx.lineWidth = 1.5;
         
-        this.stabilityData.forEach((val, i) => {
-            const x = (i / (this.stabilityData.length - 1)) * w;
+        for (let i = 0; i < 50; i++) {
+            const val = this.stabilityData[i];
+            const x = (i / 49) * w;
             const y = h - (val * (h * 0.8));
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
-        });
+        }
         ctx.stroke();
 
         // Gradient Fill
@@ -617,7 +619,13 @@ class AetherCommandRenderer {
             }
         }
         
-        if (this.frameCount % 30 === 0) this.fpsEl.innerText = `FPS: ${Math.round(1000 / delta)}`;
+        if (this.frameCount % 30 === 0) {
+            const currentFps = Math.round(1000 / delta);
+            if (currentFps !== this.lastFps) {
+                this.fpsEl.innerText = `FPS: ${currentFps}`;
+                this.lastFps = currentFps;
+            }
+        }
         this.frameCount++;
         requestAnimationFrame(() => this.loop());
     }
