@@ -62,5 +62,5 @@ Aether-Command requires several macOS permissions to function as a system contro
 - **Language**: 100% TypeScript.
 
 ---
-
-*Part of the [Aether Ecosystem](../README.md)*
+ 
+*Built with ❤️ by **Sirac Simsek***
