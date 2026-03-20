@@ -108,6 +108,13 @@ export class SystemService {
         });
     }
 
+    public cleanup() {
+        if (this.mouseDaemon) {
+            this.mouseDaemon.kill();
+            this.mouseDaemon = null;
+        }
+    }
+
     private runCommand(cmd: string) {
         exec(cmd, (err, stdout, stderr) => {
             if (err) {

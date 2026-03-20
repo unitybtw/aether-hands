@@ -83,6 +83,12 @@ class AudioManager {
 
         osc.start();
         osc.stop(this.ctx.currentTime + 0.3);
+
+        osc.onended = () => {
+            osc.disconnect();
+            panner.disconnect();
+            gain.disconnect();
+        };
     }
 }
 
@@ -630,7 +636,7 @@ class AetherCommandRenderer {
         this.lastFrameTime = now;
         
         // Thermal / Performance Guard
-        if (delta > 100) { // If frame takes > 100ms (sub 10FPS)
+        if (this.frameCount > 30 && delta > 100) { // Only check after warmup
             if (this.frameCount % 5 === 0) {
                (window as any).isBatterySaverEnabled = true;
                this.log('System: Thermal / Performance limit hit. Auto-scaling initiated.');

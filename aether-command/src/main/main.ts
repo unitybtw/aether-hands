@@ -7,6 +7,11 @@ import { SystemService } from './SystemService';
 app.commandLine.appendSwitch('disable-http-cache');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128'); // Restrict V8 heap for background process
+app.commandLine.appendSwitch('enable-accelerated-mjpeg-decode');
+app.commandLine.appendSwitch('enable-accelerated-video');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-native-gpu-memory-buffers');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
 
 process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EPIPE') {
@@ -143,6 +148,7 @@ const createHudWindow = () => {
 app.on('before-quit', () => {
     isQuiting = true;
     globalShortcut.unregisterAll();
+    if (systemService) systemService.cleanup();
 });
 
 app.whenReady().then(async () => {
