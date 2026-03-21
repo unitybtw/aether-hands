@@ -36,6 +36,15 @@
             overflow: hidden;
             transition: background-color 0.5s ease;
         }
+        .drag-region {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            -webkit-app-region: drag;
+            z-index: 9999;
+        }
         @keyframes slide-up-fade {
             0% { opacity: 0; transform: translateY(20px); }
             100% { opacity: 1; transform: translateY(0); }
@@ -403,7 +412,7 @@
     </style>
 </head>
 <body>
-    
+    <div class="drag-region"></div>
     <!-- Left Panel: Camera & Status -->
     <div class="panel">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
