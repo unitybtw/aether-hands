@@ -12,8 +12,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('activation-state-changed', subscription);
         return () => ipcRenderer.removeListener('activation-state-changed', subscription);
     },
-    onShowHud: (callback: (action: string) => void) => {
-        const subscription = (_event: any, action: string) => callback(action);
+    onShowHud: (callback: (action: string, subtitle?: string) => void) => {
+        const subscription = (_event: any, action: string, subtitle?: string) => callback(action, subtitle);
         ipcRenderer.on('show-hud', subscription);
         return () => ipcRenderer.removeListener('show-hud', subscription);
     },

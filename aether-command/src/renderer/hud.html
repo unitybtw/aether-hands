@@ -139,10 +139,17 @@
             'LAUNCH_TERMINAL': { icon: '⌨️', label: 'Terminal' }
         };
 
-        window.electronAPI.onShowHud((action) => {
+        window.electronAPI.onShowHud((action, subtitle) => {
             const asset = GESTURE_ASSETS[action] || { icon: '⚡', label: action };
             icon.innerText = asset.icon;
-            label.innerText = asset.label;
+            
+            if (subtitle) {
+                const maxLen = 35;
+                const trunc = subtitle.length > maxLen ? subtitle.substring(0, maxLen - 3) + '...' : subtitle;
+                label.innerHTML = `${asset.label}<br><span style="font-size: 0.75em; color: #fff; opacity: 0.8; font-weight: 400; display: block; text-align: center; margin-top: 8px; letter-spacing: 0.5px; text-transform: none; text-shadow: none;">${trunc}</span>`;
+            } else {
+                label.innerHTML = asset.label;
+            }
 
             hud.classList.remove('show');
             void hud.offsetWidth; // Force reflow

@@ -252,12 +252,22 @@ ipcMain.on('renderer-log', (_event, level, msg) => {
     console.log(`[Renderer ${level.toUpperCase()}] ${msg}`);
 });
 
-ipcMain.on('gesture-action', (_event, action) => {
+ipcMain.on('gesture-action', async (_event, action) => {
+    systemService.execute(action);
+    let hudSubtitle = undefined;
+
+    if (['PLAY_PAUSE', 'NEXT_TRACK', 'PREV_TRACK'].includes(action)) {
+        await new Promise(r => setTimeout(r, 400));
+        hudSubtitle = await systemService.getMediaInfo();
+    } else if (['VOLUME_UP', 'VOLUME_DOWN', 'MUTE_TOGGLE'].includes(action)) {
+        await new Promise(r => setTimeout(r, 200));
+        hudSubtitle = await systemService.getVolumeInfo();
+    }
+
     if (hudWindow) {
         if (!hudWindow.isVisible()) hudWindow.showInactive();
-        hudWindow.webContents.send('show-hud', action);
+        hudWindow.webContents.send('show-hud', action, hudSubtitle);
     }
-    systemService.execute(action);
 });
 
 ipcMain.on('hide-hud', () => {

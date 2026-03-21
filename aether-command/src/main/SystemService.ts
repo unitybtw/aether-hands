@@ -129,12 +129,50 @@ export class SystemService {
         if (daemon && daemon.stdin) daemon.stdin.write(`up\n`);
     }
 
-    private runAppleScript(script: string, silent = false) {
-        exec(`osascript -e '${script}'`, (err, stdout, stderr) => {
-            if (err && !silent) {
-                console.error(`[SystemService] AppleScript Error:`, err.message);
-            }
+    private runAppleScript(script: string, silent = false): Promise<string> {
+        return new Promise((resolve) => {
+            exec(`osascript -e '${script}'`, (err, stdout) => {
+                if (err && !silent) {
+                    console.error(`[SystemService] AppleScript Error:`, err.message);
+                    resolve('');
+                } else {
+                    resolve(stdout ? stdout.trim() : '');
+                }
+            });
         });
+    }
+
+    public async getMediaInfo(): Promise<string | null> {
+        const script = `
+            try
+                if application "Spotify" is running then
+                    tell application "Spotify"
+                        if player state is playing then return (name of current track) & " - " & (artist of current track)
+                    end tell
+                else if application "Music" is running then
+                    tell application "Music"
+                        if player state is playing then return (name of current track) & " - " & (artist of current track)
+                    end tell
+                end if
+            end try
+            return ""
+        `;
+        const info = await this.runAppleScript(script, true);
+        return info && info.length > 0 ? info : null;
+    }
+
+    public async getVolumeInfo(): Promise<string | null> {
+        const script = `
+            try
+                set vol to output volume of (get volume settings)
+                set isMuted to output muted of (get volume settings)
+                if isMuted then return "Muted"
+                return (vol as string) & "%"
+            end try
+            return ""
+        `;
+        const info = await this.runAppleScript(script, true);
+        return info && info.length > 0 ? `Volume: ${info}` : null;
     }
 
     public cleanup() {
