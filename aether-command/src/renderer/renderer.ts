@@ -463,16 +463,27 @@ class AetherCommandRenderer {
         if (profileSelect) {
             profileSelect.addEventListener('change', () => {
                 const profile = profileSelect.value;
-                // @ts-ignore
-                const config = (window as any).PROFILES[profile];
+                const PROFILES: Record<string, any> = {
+                    default: { pinch: 'PLAY_PAUSE', fist: 'MUTE_TOGGLE', palm: 'MISSION_CONTROL', peace: 'SHOW_DESKTOP', swipe: 'SPACES' },
+                    media: { pinch: 'PLAY_PAUSE', fist: 'MUTE_TOGGLE', palm: 'VOLUME_UP', peace: 'NEXT_TRACK', swipe: 'PREV_TRACK' },
+                    coding: { pinch: 'LAUNCH_VSCODE', fist: 'LAUNCH_TERMINAL', palm: 'LAUNCH_CHROME', peace: 'LOCK_SCREEN', swipe: 'SPACES' }
+                };
+                const config = PROFILES[profile];
                 if (config) {
-                    (document.getElementById('map-pinch') as HTMLSelectElement).value = config.pinch;
-                    (document.getElementById('map-fist') as HTMLSelectElement).value = config.fist;
-                    (document.getElementById('map-palm') as HTMLSelectElement).value = config.palm;
-                    (document.getElementById('map-peace') as HTMLSelectElement).value = config.peace;
-                    (document.getElementById('map-swipe') as HTMLSelectElement).value = config.swipe;
+                    const elPinch = document.getElementById('map-pinch') as HTMLSelectElement;
+                    const elFist = document.getElementById('map-fist') as HTMLSelectElement;
+                    const elPalm = document.getElementById('map-palm') as HTMLSelectElement;
+                    const elPeace = document.getElementById('map-peace') as HTMLSelectElement;
+                    const elSwipe = document.getElementById('map-swipe') as HTMLSelectElement;
+
+                    if (elPinch && config.pinch) elPinch.value = config.pinch;
+                    if (elFist && config.fist) elFist.value = config.fist;
+                    if (elPalm && config.palm) elPalm.value = config.palm;
+                    if (elPeace && config.peace) elPeace.value = config.peace;
+                    if (elSwipe && config.swipe) elSwipe.value = config.swipe;
+
                     this.handleSettingChange();
-                    this.log(`Profile: Switching to ${profile.toUpperCase()} mode.`);
+                    this.log(`Profile: Switched to ${profile.toUpperCase()} preset.`);
                 }
             });
         }
