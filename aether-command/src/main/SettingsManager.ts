@@ -12,6 +12,7 @@ export interface AppSettings {
     };
     smoothing: number;
     sensitivity: number;
+    cursorSpeed: number;
     openAtLogin: boolean;
     requireKey: boolean;
     leftHandMode: boolean;
@@ -29,6 +30,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
     smoothing: 0.5,
     sensitivity: 0.7,
+    cursorSpeed: 1.5,
     openAtLogin: false,
     requireKey: false,
     leftHandMode: false,

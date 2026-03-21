@@ -359,7 +359,8 @@ class AetherCommandRenderer {
             'map-swipe': settings.mappings.swipe,
             'setting-sensitivity': settings.sensitivity,
             'setting-theme': settings.theme,
-            'setting-hand-preference': settings.leftHandMode
+            'setting-hand-preference': settings.leftHandMode,
+            'setting-cursor-speed': settings.cursorSpeed
         };
 
         for (const [id, value] of Object.entries(uiMap)) {
@@ -372,6 +373,7 @@ class AetherCommandRenderer {
         this.applyTheme(settings.theme);
         this.updateActivationUIState(settings.requireKey);
         this.leftHandMode = settings.leftHandMode;
+        this.cursorSpeed = settings.cursorSpeed || 1.5;
         if (this.tracker) this.tracker.updateOptions(settings.sensitivity);
     }
 
@@ -398,6 +400,7 @@ class AetherCommandRenderer {
             'setting-smoothing', 'setting-autolaunch', 
             'setting-require-key', 'setting-activation-key',
             'setting-sensitivity', 'setting-theme', 'setting-hand-preference',
+            'setting-cursor-speed', // Added
             'map-pinch', 'map-fist', 'map-palm', 'map-peace', 'map-swipe'
         ];
         uiElements.forEach(id => {
@@ -493,11 +496,13 @@ class AetherCommandRenderer {
             theme: (document.getElementById('setting-theme') as HTMLSelectElement).value,
             leftHandMode: (document.getElementById('setting-hand-preference') as HTMLInputElement).checked,
             batterySaver: (document.getElementById('setting-battery-saver') as HTMLInputElement).checked,
-            extraVfx: (document.getElementById('setting-vfx-extra') as HTMLInputElement).checked
+            extraVfx: (document.getElementById('setting-vfx-extra') as HTMLInputElement).checked,
+            cursorSpeed: parseFloat((document.getElementById('setting-cursor-speed') as HTMLInputElement).value) // Added
         };
         this.lerpAmount = settings.smoothing;
         this.smoother.setFactor(settings.smoothing);
         this.leftHandMode = settings.leftHandMode;
+        this.cursorSpeed = settings.cursorSpeed; // Updated
         this.applyTheme(settings.theme as string);
         this.tracker.updateOptions(settings.sensitivity);
         this.vfx.setExtraEffects(settings.extraVfx);
@@ -699,6 +704,9 @@ class AetherCommandRenderer {
         if (this.uiElements[id]) this.uiElements[id].classList.add('active');
     }
 
+    private cameraStatus: string = 'checking...';
+    private cursorSpeed: number = 1.5; // Added
+
     private clearStatusHighlights() {
         this.statusPills.forEach(p => p.classList.remove('active'));
     }
@@ -714,8 +722,19 @@ class AetherCommandRenderer {
             this.highlightStatus('status-palm'); // Show visual feedback in Dashboard
             const now = performance.now();
             if (now - this.lastMouseUpdate > 16) { // 60Hz update rate to save resources
-                const targetX = (1 - state.lastWristPos.x) * this.screenWidth;
-                const targetY = state.lastWristPos.y * this.screenHeight;
+                let normX = 1 - state.lastWristPos.x;
+                let normY = state.lastWristPos.y;
+
+                // Apply Sensitivity scaling from center (0.5, 0.5)
+                normX = 0.5 + (normX - 0.5) * this.cursorSpeed;
+                normY = 0.5 + (normY - 0.5) * this.cursorSpeed;
+                
+                // Clamp bounds
+                normX = Math.max(0, Math.min(1, normX));
+                normY = Math.max(0, Math.min(1, normY));
+
+                const targetX = normX * this.screenWidth;
+                const targetY = normY * this.screenHeight;
                 (window.electronAPI as any).mouseMove(targetX, targetY);
                 this.lastMouseUpdate = now;
             }
@@ -734,8 +753,15 @@ class AetherCommandRenderer {
                 } else {
                     const now = performance.now();
                     if (now - this.lastMouseUpdate > 16) {
-                        const targetX = (1 - state.lastWristPos.x) * this.screenWidth;
-                        const targetY = state.lastWristPos.y * this.screenHeight;
+                        let normX = 1 - state.lastWristPos.x;
+                        let normY = state.lastWristPos.y;
+                        normX = 0.5 + (normX - 0.5) * this.cursorSpeed;
+                        normY = 0.5 + (normY - 0.5) * this.cursorSpeed;
+                        normX = Math.max(0, Math.min(1, normX));
+                        normY = Math.max(0, Math.min(1, normY));
+
+                        const targetX = normX * this.screenWidth;
+                        const targetY = normY * this.screenHeight;
                         (window.electronAPI as any).mouseDrag(targetX, targetY);
                         this.lastMouseUpdate = now;
                     }
