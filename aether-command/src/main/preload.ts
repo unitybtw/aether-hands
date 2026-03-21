@@ -37,5 +37,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         const subscription = (_event: any, x: number, y: number, isDrawing: boolean, isClearing: boolean) => callback(x, y, isDrawing, isClearing);
         ipcRenderer.on('draw-laser-point', subscription);
         return () => ipcRenderer.removeListener('draw-laser-point', subscription);
+    },
+    onActiveAppChanged: (callback: (appName: string) => void) => {
+        const sub = (_event: any, appName: string) => callback(appName);
+        ipcRenderer.on('active-app-changed', sub);
+        return () => ipcRenderer.removeListener('active-app-changed', sub);
     }
 });

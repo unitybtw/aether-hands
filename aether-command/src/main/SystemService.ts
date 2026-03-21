@@ -203,4 +203,20 @@ export class SystemService {
             }
         });
     }
+
+    private lastFrontmostApp: string = '';
+    public startAppMonitor(onAppChange: (appName: string) => void) {
+        // Poll every 1.5 seconds to detect which application the user is actively focused on
+        setInterval(() => {
+            exec(`osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`, (error, stdout) => {
+                if (!error && stdout) {
+                    const appName = stdout.trim();
+                    if (appName && appName !== this.lastFrontmostApp) {
+                        this.lastFrontmostApp = appName;
+                        onAppChange(appName);
+                    }
+                }
+            });
+        }, 1500);
+    }
 }

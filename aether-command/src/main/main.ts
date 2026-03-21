@@ -210,6 +210,13 @@ app.whenReady().then(async () => {
     createLaserWindow();
     updateActivationPolling();
 
+    // Start App Monitoring for Smart Profiles
+    systemService.startAppMonitor((appName) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('active-app-changed', appName);
+        }
+    });
+
     // Power Monitor
     powerMonitor.on('suspend', () => {
         console.log('[Main] System suspending, stopping polling.');

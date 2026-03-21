@@ -326,6 +326,12 @@ class AetherCommandRenderer {
                 this.updateActivationStatusUI(state);
             });
 
+            if ((window.electronAPI as any).onActiveAppChanged) {
+                (window.electronAPI as any).onActiveAppChanged((appName: string) => {
+                    this.handleSmartProfileSwitch(appName);
+                });
+            }
+
             const hasCamera = await this.initCamera();
             if (!hasCamera) return;
 
@@ -487,6 +493,35 @@ class AetherCommandRenderer {
                     this.log(`Profile: Switched to ${profile.toUpperCase()} preset.`);
                 }
             });
+        }
+    }
+
+    private handleSmartProfileSwitch(appName: string) {
+        if (!this.uiElements['setting-profile'] && !document.getElementById('setting-profile')) return;
+        const select = (this.uiElements['setting-profile'] || document.getElementById('setting-profile')) as HTMLSelectElement;
+        
+        const mediaApps = ['Spotify', 'Music', 'IINA', 'VLC', 'QuickTime Player'];
+        const devApps = ['Code', 'Cursor', 'Terminal', 'iTerm2', 'Xcode', 'Warp', 'Android Studio'];
+        
+        let targetProfile = 'default';
+        if (mediaApps.includes(appName)) targetProfile = 'media';
+        else if (devApps.includes(appName)) targetProfile = 'coding';
+        
+        if (select.value !== targetProfile) {
+            select.value = targetProfile;
+            select.dispatchEvent(new Event('change'));
+            this.log(`Smart Switch: Profile changed to ${targetProfile.toUpperCase()} for [${appName}]`);
+            this.audio.playSuccess();
+            
+            if ((window as any).electronAPI && (window as any).electronAPI.onShowHud) {
+                const actionIcon = targetProfile === 'media' ? 'VOLUME_UP' : (targetProfile === 'coding' ? 'LAUNCH_VSCODE' : 'SHOW_DESKTOP');
+                window.dispatchEvent(new CustomEvent('show-local-hud', { 
+                    detail: { 
+                        action: actionIcon, 
+                        subtitle: `Profile: ${targetProfile.toUpperCase()} [${appName}]` 
+                    } 
+                }));
+            }
         }
     }
 
