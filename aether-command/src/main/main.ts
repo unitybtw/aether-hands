@@ -135,8 +135,8 @@ const createHudWindow = () => {
     hudWindow = new BrowserWindow({
         width: 300,
         height: 120,
-        x: width / 2 - 150,
-        y: height - 160,
+        x: Math.floor(width / 2) - 150,
+        y: Math.floor(height / 2) - 60,
         transparent: true,
         frame: false,
         alwaysOnTop: true,
