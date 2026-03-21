@@ -63,7 +63,7 @@ export class GestureEngine {
             this.velocity.x = wrist.x - this.lastWristPos.x;
             this.velocity.y = wrist.y - this.lastWristPos.y;
             
-            const thresh = 0.4 * handScale; 
+            const thresh = 0.2 * handScale; 
             if (this.velocity.x > thresh) swipeDirection = 'left';
             else if (this.velocity.x < -thresh) swipeDirection = 'right';
             else if (this.velocity.y < -thresh) swipeDirection = 'up';

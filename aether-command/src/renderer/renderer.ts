@@ -753,7 +753,26 @@ class AetherCommandRenderer {
             this.isMouseModeActive = false;
         }
 
-        if (state.isPinching) {
+        if (state.swipeDirection && !this.isMouseModeActive && !this.isPinchHeld) {
+            const swipeBase = this.mapElements['map-swipe'].value;
+            if (swipeBase === 'SPACES') {
+                if (state.swipeDirection === 'left') action = 'SPACE_LEFT';
+                else if (state.swipeDirection === 'right') action = 'SPACE_RIGHT';
+                else if (state.swipeDirection === 'up') action = 'MISSION_CONTROL';
+                else if (state.swipeDirection === 'down') action = 'SHOW_DESKTOP';
+            } else if (swipeBase === 'MEDIA') {
+                if (state.swipeDirection === 'left') action = 'PREV_TRACK';
+                else if (state.swipeDirection === 'right') action = 'NEXT_TRACK';
+                else if (state.swipeDirection === 'up') action = 'VOLUME_UP';
+                else if (state.swipeDirection === 'down') action = 'VOLUME_DOWN';
+            } else if (swipeBase === 'BROWSER') {
+                if (state.swipeDirection === 'left') action = 'BROWSER_BACK';
+                else if (state.swipeDirection === 'right') action = 'BROWSER_FORWARD';
+                else if (state.swipeDirection === 'up') action = 'BROWSER_TAB_NEXT';
+                else if (state.swipeDirection === 'down') action = 'BROWSER_TAB_PREV';
+            }
+        }
+        else if (state.isPinching) {
             action = this.mapElements['map-pinch'].value;
             if (action === 'MOUSE_MODE' || this.isMouseModeActive) {
                 this.highlightStatus('status-pinch');
@@ -817,25 +836,6 @@ class AetherCommandRenderer {
         }
         else if (state.isOpenPalm) action = this.mapElements['map-palm'].value;
         else if (state.isPeace) action = this.mapElements['map-peace'].value;
-        else if (state.swipeDirection) {
-            const swipeBase = this.mapElements['map-swipe'].value;
-            if (swipeBase === 'SPACES') {
-                if (state.swipeDirection === 'left') action = 'SPACE_LEFT';
-                else if (state.swipeDirection === 'right') action = 'SPACE_RIGHT';
-                else if (state.swipeDirection === 'up') action = 'MISSION_CONTROL';
-                else if (state.swipeDirection === 'down') action = 'SHOW_DESKTOP';
-            } else if (swipeBase === 'MEDIA') {
-                if (state.swipeDirection === 'left') action = 'PREV_TRACK';
-                else if (state.swipeDirection === 'right') action = 'NEXT_TRACK';
-                else if (state.swipeDirection === 'up') action = 'VOLUME_UP';
-                else if (state.swipeDirection === 'down') action = 'VOLUME_DOWN';
-            } else if (swipeBase === 'BROWSER') {
-                if (state.swipeDirection === 'left') action = 'BROWSER_BACK';
-                else if (state.swipeDirection === 'right') action = 'BROWSER_FORWARD';
-                else if (state.swipeDirection === 'up') action = 'BROWSER_TAB_NEXT';
-                else if (state.swipeDirection === 'down') action = 'BROWSER_TAB_PREV';
-            }
-        }
 
         if (!state.isPinching && this.isPinchHeld) {
             this.isPinchHeld = false;
