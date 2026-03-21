@@ -135,13 +135,38 @@
             position: relative;
             width: 100%;
             aspect-ratio: 4/3;
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
             background: #000;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            border: 1px solid rgba(0, 229, 255, 0.15);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 0 30px rgba(0, 229, 255, 0.1);
             flex-shrink: 0;
         }
+        .feed-container::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: 
+                linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
+            background-size: 25px 25px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .crosshair {
+            position: absolute;
+            width: 15px; height: 15px;
+            border: 2px solid var(--accent-primary);
+            opacity: 0.6;
+            pointer-events: none;
+            z-index: 12;
+            transition: all 0.3s;
+        }
+        .feed-container:hover .crosshair { width: 25px; height: 25px; opacity: 1; }
+        .crosshair.tl { top: 15px; left: 15px; border-right: none; border-bottom: none; }
+        .crosshair.tr { top: 15px; right: 15px; border-left: none; border-bottom: none; }
+        .crosshair.bl { bottom: 15px; left: 15px; border-right: none; border-top: none; }
+        .crosshair.br { bottom: 15px; right: 15px; border-left: none; border-top: none; }
         video {
             width: 100%;
             height: 100%;
@@ -224,12 +249,36 @@
             background: rgba(0, 229, 255, 0.15);
             color: var(--accent-primary);
             border-color: var(--accent-primary);
-            box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
             transform: translateY(-2px);
+            font-weight: 600;
         }
-        /* Settings Styles */
-        .setting-group {
+        /* Settings Cards */
+        .settings-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 24px;
             margin-bottom: 24px;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.2);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .settings-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+            background: linear-gradient(to bottom, var(--accent-primary), transparent);
+            opacity: 0.5; transition: all 0.3s;
+        }
+        .settings-card:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .settings-card:hover::before { height: 100%; opacity: 1; box-shadow: 0 0 15px var(--accent-primary); }
+        
+        .setting-group {
+            margin-bottom: 20px;
         }
         label {
             display: block;
@@ -425,10 +474,13 @@
                 50% { transform: scale(1.3); opacity: 0.6; box-shadow: 0 0 25px var(--accent-primary); }
             }
         </style>
+        </style>
         <div class="feed-container">
+            <div class="crosshair tl"></div><div class="crosshair tr"></div>
+            <div class="crosshair bl"></div><div class="crosshair br"></div>
             <video id="webcam" autoplay playsinline muted></video>
-            <canvas id="vfx-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-            <div id="status-overlay" style="position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 10px; font-size: 0.75rem; color: #00ff00; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(5px); border: 1px solid rgba(0, 255, 0, 0.2);">Initializing Tracker...</div>
+            <canvas id="vfx-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 11;"></canvas>
+            <div id="status-overlay" style="position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 8px; font-size: 0.70rem; letter-spacing: 1px; color: #00ff00; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(10px); border: 1px solid rgba(0, 255, 0, 0.3); z-index: 20; text-transform: uppercase;">Initializing...</div>
             <div id="gesture-feedback" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0, 229, 255, 0.15); padding: 8px 24px; border-radius: 24px; font-weight: 600; color: var(--accent-primary); opacity: 0; transition: all 0.3s; border: 1px solid var(--accent-primary); backdrop-filter: blur(10px); font-size: 0.95rem; box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);">
                 ACTIVE: <span id="last-gesture">-</span>
             </div>
@@ -479,14 +531,16 @@
 
     <!-- Right Panel: Configurations -->
     <div class="panel right-content">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
-            <h2 style="margin-bottom: 0;">Command Mappings</h2>
-            <select id="setting-profile" style="width: auto; padding: 6px 12px; font-size: 11px; background: rgba(0, 229, 255, 0.1); border-color: var(--accent-primary); color: #fff; margin: 0; border-radius: 8px;">
-                <option value="default">Default: OS</option>
-                <option value="media">Media Mode</option>
-                <option value="coding">Focus: Code</option>
-            </select>
-        </div>
+        
+        <div class="settings-card" style="margin-top: 5px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                <h2 style="margin-bottom: 0;">Command Protocol</h2>
+                <select id="setting-profile" style="width: auto; padding: 6px 12px; font-size: 11px; background: rgba(0, 229, 255, 0.1) !important; border-color: var(--accent-primary); color: #fff; margin: 0; border-radius: 6px; text-transform: uppercase; letter-spacing: 1px;">
+                    <option value="default">DEFAULT // OS</option>
+                    <option value="media">MEDIA // CONTROL</option>
+                    <option value="coding">FOCUS // CODE</option>
+                </select>
+            </div>
         
         <div class="gesture-row" style="--delay: 1;">
             <div class="gesture-label"><span class="gesture-icon">🤏</span> <span>Pinch</span></div>
@@ -608,8 +662,11 @@
             - Pinch and hold down while moving your hand to <strong>Drag and Drop</strong>.<br>
             - Set <strong>Fist</strong> to "Scroll Track" and move hand up/down to <strong>Scroll</strong>.
         </div>
+        
+        </div> <!-- End Settings Card -->
 
-        <h2 style="margin-top: 30px; animation: slide-up-fade 0.5s both;">Engine Settings</h2>
+        <div class="settings-card">
+            <h2 style="margin-top: 0; animation: slide-up-fade 0.5s both;">Engine Performance & Style</h2>
         
         <div class="setting-group" style="--delay: 1;">
             <label data-tooltip="Adjust the delay/smoothness of hand tracking">Tracking Smoothing</label>
@@ -675,6 +732,8 @@
         <style>
             #export-settings:hover, #import-settings:hover { background: var(--accent-primary); color: #000; border-color: var(--accent-primary); box-shadow: 0 0 15px var(--accent-primary); }
         </style>
+        
+        </div> <!-- End Second Card -->
 
         <div id="engine-footer" style="margin-top: auto; padding-top: 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.03); opacity: 0.3; font-size: 8px; letter-spacing: 2px; font-weight: 300; pointer-events: none;">
             <span>AETHER COMMAND v2.5.0-PRO</span>
