@@ -704,7 +704,7 @@ class AetherCommandRenderer {
     }
 
     private handleGestureState(state: any) {
-        if (!state.isPinching) this.pinchAnchorY = null;
+        if (!state.isPinching && !state.isFist) this.pinchAnchorY = null;
         let action: string | null = null;
         
         // Virtual Trackpad Logic
@@ -714,7 +714,6 @@ class AetherCommandRenderer {
             this.highlightStatus('status-palm'); // Show visual feedback in Dashboard
             const now = performance.now();
             if (now - this.lastMouseUpdate > 16) { // 60Hz update rate to save resources
-                // Using state.lastWristPos which is now guaranteed to exist
                 const targetX = (1 - state.lastWristPos.x) * this.screenWidth;
                 const targetY = state.lastWristPos.y * this.screenHeight;
                 (window.electronAPI as any).mouseMove(targetX, targetY);
@@ -729,9 +728,17 @@ class AetherCommandRenderer {
             if (action === 'MOUSE_MODE' || this.isMouseModeActive) {
                 this.highlightStatus('status-pinch');
                 if (!this.isPinchHeld) {
-                    (window.electronAPI as any).mouseClick('left');
+                    (window.electronAPI as any).mouseDown();
                     this.isPinchHeld = true;
-                    this.log("Mouse: Left Click");
+                    this.log("Mouse: Drag Start (Down)");
+                } else {
+                    const now = performance.now();
+                    if (now - this.lastMouseUpdate > 16) {
+                        const targetX = (1 - state.lastWristPos.x) * this.screenWidth;
+                        const targetY = state.lastWristPos.y * this.screenHeight;
+                        (window.electronAPI as any).mouseDrag(targetX, targetY);
+                        this.lastMouseUpdate = now;
+                    }
                 }
                 return;
             }
@@ -750,7 +757,27 @@ class AetherCommandRenderer {
                 return;
             }
         } 
-        else if (state.isFist) action = this.mapElements['map-fist'].value;
+        else if (state.isFist) {
+            action = this.mapElements['map-fist'].value;
+            if (action === 'MOUSE_SCROLL') {
+                this.highlightStatus('status-fist');
+                if (this.pinchAnchorY === null) this.pinchAnchorY = state.lastWristPos.y;
+                else {
+                    const deltaY = state.lastWristPos.y - this.pinchAnchorY;
+                    if (Math.abs(deltaY) > 0.02) {
+                        // CGEvent Scroll Wheel: + is UP, - is DOWN
+                        // Hand moves down -> deltaY is positive -> we want to scroll down (-1)
+                        const scrollAmount = Math.round(-deltaY * 50);
+                        if (scrollAmount !== 0) {
+                            (window.electronAPI as any).mouseScroll(scrollAmount);
+                            this.pinchAnchorY = state.lastWristPos.y;
+                            this.log(`Mouse: Scroll ${scrollAmount > 0 ? 'Up' : 'Down'}`);
+                        }
+                    }
+                }
+                return;
+            }
+        }
         else if (state.isOpenPalm) action = this.mapElements['map-palm'].value;
         else if (state.isPeace) action = this.mapElements['map-peace'].value;
         else if (state.swipeDirection) {
@@ -758,8 +785,13 @@ class AetherCommandRenderer {
             action = swipeBase === 'SPACES' ? (state.swipeDirection === 'left' ? 'SPACE_LEFT' : 'SPACE_RIGHT') : swipeBase;
         }
 
-        if (!state.isPinching) this.isPinchHeld = false;
-        if (action && action !== 'NONE' && action !== 'MOUSE_MODE') this.triggerAction(action);
+        if (!state.isPinching && this.isPinchHeld) {
+            this.isPinchHeld = false;
+            (window.electronAPI as any).mouseUp();
+            this.log("Mouse: Drag End (Up)");
+        }
+
+        if (action && action !== 'NONE' && action !== 'MOUSE_MODE' && action !== 'MOUSE_SCROLL') this.triggerAction(action);
     }
 
     private triggerAction(action: string, continuous = false) {

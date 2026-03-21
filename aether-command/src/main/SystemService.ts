@@ -105,9 +105,28 @@ export class SystemService {
     }
 
     public clickMouse(button: 'left' | 'right' = 'left') {
-        // High performance native C module for zero-latency clicks via stdin daemon
         const daemon = this.getMouseDaemon();
         if (daemon && daemon.stdin) daemon.stdin.write(`click\n`);
+    }
+
+    public mouseScroll(deltaY: number) {
+        const daemon = this.getMouseDaemon();
+        if (daemon && daemon.stdin) daemon.stdin.write(`scroll ${Math.round(deltaY)}\n`);
+    }
+
+    public mouseDrag(x: number, y: number) {
+        const daemon = this.getMouseDaemon();
+        if (daemon && daemon.stdin) daemon.stdin.write(`drag ${Math.round(x)} ${Math.round(y)}\n`);
+    }
+
+    public mouseDown() {
+        const daemon = this.getMouseDaemon();
+        if (daemon && daemon.stdin) daemon.stdin.write(`down\n`);
+    }
+
+    public mouseUp() {
+        const daemon = this.getMouseDaemon();
+        if (daemon && daemon.stdin) daemon.stdin.write(`up\n`);
     }
 
     private runAppleScript(script: string, silent = false) {

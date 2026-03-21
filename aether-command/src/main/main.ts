@@ -261,6 +261,22 @@ ipcMain.on('mouse-move', (_event, { x, y }) => {
     systemService.updateMousePosition(x, y);
 });
 
+ipcMain.on('mouse-drag', (_event, { x, y }) => {
+    systemService.mouseDrag(x, y);
+});
+
+ipcMain.on('mouse-scroll', (_event, deltaY) => {
+    systemService.mouseScroll(deltaY);
+});
+
+ipcMain.on('mouse-down', () => {
+    systemService.mouseDown();
+});
+
+ipcMain.on('mouse-up', () => {
+    systemService.mouseUp();
+});
+
 ipcMain.on('mouse-click', (_event, button) => {
     systemService.clickMouse(button);
 });

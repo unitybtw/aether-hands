@@ -44,6 +44,35 @@ int main(int argc, char *argv[]) {
             CGEventPost(kCGHIDEventTap, clickUp);
             CFRelease(clickDown);
             CFRelease(clickUp);
+        } else if (strncmp(buffer, "scroll", 6) == 0) {
+            int scrollY;
+            if (sscanf(buffer, "scroll %d", &scrollY) == 1) {
+                CGEventRef scroll = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 1, scrollY);
+                CGEventPost(kCGHIDEventTap, scroll);
+                CFRelease(scroll);
+            }
+        } else if (strncmp(buffer, "down", 4) == 0) {
+            CGEventRef event = CGEventCreate(NULL);
+            CGPoint pt = CGEventGetLocation(event);
+            CFRelease(event);
+            CGEventRef clickDown = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseDown, pt, kCGMouseButtonLeft);
+            CGEventPost(kCGHIDEventTap, clickDown);
+            CFRelease(clickDown);
+        } else if (strncmp(buffer, "up", 2) == 0) {
+            CGEventRef event = CGEventCreate(NULL);
+            CGPoint pt = CGEventGetLocation(event);
+            CFRelease(event);
+            CGEventRef clickUp = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseUp, pt, kCGMouseButtonLeft);
+            CGEventPost(kCGHIDEventTap, clickUp);
+            CFRelease(clickUp);
+        } else if (strncmp(buffer, "drag", 4) == 0) {
+            float x, y;
+            if (sscanf(buffer, "drag %f %f", &x, &y) == 2) {
+                CGPoint pt = CGPointMake(x, y);
+                CGEventRef move = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseDragged, pt, kCGMouseButtonLeft);
+                CGEventPost(kCGHIDEventTap, move);
+                CFRelease(move);
+            }
         } else {
             float x, y;
             if (sscanf(buffer, "%f %f", &x, &y) == 2) {
