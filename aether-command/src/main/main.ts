@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, systemPreferences, session, globalShortcut, powerMonitor } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, systemPreferences, session, globalShortcut, powerMonitor, screen } from 'electron';
 import { exec } from 'child_process';
 import * as path from 'path';
 import { SettingsManager } from './SettingsManager';
@@ -129,15 +129,21 @@ const createWindow = () => {
 };
 
 const createHudWindow = () => {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
+
     hudWindow = new BrowserWindow({
-        width: 400,
-        height: 300,
+        width: 300,
+        height: 120,
+        x: width / 2 - 150,
+        y: height - 160,
         transparent: true,
         frame: false,
         alwaysOnTop: true,
         skipTaskbar: true,
         hasShadow: false,
         show: false,
+        type: 'panel', // Float above full screen apps on Mac
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -148,6 +154,7 @@ const createHudWindow = () => {
 
     hudWindow.loadFile(path.join(__dirname, '..', '..', 'src', 'renderer', 'hud.html'));
     hudWindow.setIgnoreMouseEvents(true);
+    hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); // Make sure HUD shows on all desktops
 };
 
 app.on('before-quit', () => {
@@ -255,6 +262,10 @@ ipcMain.on('gesture-action', (_event, action) => {
         hudWindow.webContents.send('show-hud', action);
     }
     systemService.execute(action);
+});
+
+ipcMain.on('hide-hud', () => {
+    if (hudWindow && hudWindow.isVisible()) hudWindow.hide();
 });
 
 ipcMain.on('mouse-move', (_event, { x, y }) => {

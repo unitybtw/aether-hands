@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('show-hud', subscription);
         return () => ipcRenderer.removeListener('show-hud', subscription);
     },
+    hideHud: () => ipcRenderer.send('hide-hud'),
     log: (level: string, msg: string) => ipcRenderer.send('renderer-log', level, msg),
     setTrackingStatus: (active: boolean) => ipcRenderer.send('set-tracking-status', active),
     mouseMove: (x: number, y: number) => ipcRenderer.send('mouse-move', { x, y }),

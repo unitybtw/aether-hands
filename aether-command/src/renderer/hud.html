@@ -151,7 +151,10 @@
             clearTimeout(hideTimeout);
             hideTimeout = setTimeout(() => {
                 hud.classList.remove('show');
-            }, 1200);
+                setTimeout(() => {
+                    window.electronAPI.hideHud();
+                }, 500); // Wait for CSS shrink animation
+            }, 1500);
         });
     </script>
 </body>
