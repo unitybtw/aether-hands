@@ -13,6 +13,7 @@ export interface GestureState {
     isPeace: boolean;
     pinchStartPos: { x: number, y: number } | null;
     lastWristPos: { x: number, y: number };
+    depth: number;
 }
 
 export class GestureEngine {
@@ -84,7 +85,8 @@ export class GestureEngine {
             isOpenPalm,
             isPeace,
             pinchStartPos,
-            lastWristPos: { x: wrist.x, y: wrist.y }
+            lastWristPos: { x: wrist.x, y: wrist.y },
+            depth: (wrist.z + 0.5) * 2 // Normalized 0-1 depth
         };
     }
 

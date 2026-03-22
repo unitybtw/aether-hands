@@ -143,6 +143,8 @@ class AetherCommandRenderer {
     private screenHeight: number = 1440; // Fallback
     private lastMouseUpdate: number = 0;
     private isPinchHeld: boolean = false;
+    private isFistHeld: boolean = false;
+    private lastLaserAction: 'draw' | 'move' | 'clear' = 'move';
 
     constructor() {
         this.video = document.getElementById('webcam') as HTMLVideoElement;
@@ -789,9 +791,18 @@ class AetherCommandRenderer {
                 const targetY = normY * this.screenHeight;
 
                 if (this.isLaserModeActive) {
-                    (window.electronAPI as any).drawLaserPoint(targetX, targetY, state.isPinching, state.isFist);
-                    if (state.isFist) {
-                        this.vfx.createBurst(state.lastWristPos.x * this.canvas.width, state.lastWristPos.y * this.canvas.height, 30);
+                    const isDrawing = state.isPinching;
+                    const isClearing = state.isFist;
+                    
+                    if (isClearing) {
+                        if (!this.isFistHeld) {
+                            (window.electronAPI as any).drawLaserPoint(targetX, targetY, false, true);
+                            this.isFistHeld = true;
+                            this.log("Laser: Canvas Cleared");
+                        }
+                    } else {
+                        this.isFistHeld = false;
+                        (window.electronAPI as any).drawLaserPoint(targetX, targetY, isDrawing, false);
                     }
                 } else {
                     (window.electronAPI as any).mouseMove(targetX, targetY);
@@ -800,6 +811,33 @@ class AetherCommandRenderer {
                 this.lastMouseUpdate = now;
             }
         } else {
+            if (this.isLaserModeActive) { // Fallback to track wrist even without open palm
+                const now = performance.now();
+                if (now - this.lastMouseUpdate > 16) {
+                    let normX = 1 - state.lastWristPos.x;
+                    let normY = state.lastWristPos.y;
+                    normX = 0.5 + (normX - 0.5) * this.cursorSpeed;
+                    normY = 0.5 + (normY - 0.5) * this.cursorSpeed;
+                    normX = Math.max(0, Math.min(1, normX));
+                    normY = Math.max(0, Math.min(1, normY));
+                    const targetX = normX * this.screenWidth;
+                    const targetY = normY * this.screenHeight;
+                    
+                    const isDrawing = state.isPinching;
+                    const isClearing = state.isFist;
+                    
+                    if (isClearing) {
+                        if (!this.isFistHeld) {
+                            (window.electronAPI as any).drawLaserPoint(targetX, targetY, false, true);
+                            this.isFistHeld = true;
+                        }
+                    } else {
+                        this.isFistHeld = false;
+                        (window.electronAPI as any).drawLaserPoint(targetX, targetY, isDrawing, false);
+                    }
+                    this.lastMouseUpdate = now;
+                }
+            }
             this.isMouseModeActive = false;
         }
 
@@ -911,6 +949,14 @@ class AetherCommandRenderer {
         if (!continuous && now - this.lastGlobalActionTime < this.GLOBAL_DEBOUNCE_MS) return;
         
         if (now - lastTime > debounce) {
+            if (action === 'LASER_POINTER') {
+                this.isLaserModeActive = !this.isLaserModeActive;
+                (window.electronAPI as any).toggleLaserMode(this.isLaserModeActive);
+                this.log(`Laser: ${this.isLaserModeActive ? 'ENABLED (Pinch to Draw, Fist to Clear)' : 'DISABLED'}`);
+                this.audio.playSuccess(0.5, this.isLaserModeActive ? 0.3 : 0.7);
+                return;
+            }
+
             if (!continuous) {
                 this.gestureLocked = true;
                 setTimeout(() => { this.gestureLocked = false; }, 500);
