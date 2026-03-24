@@ -633,12 +633,15 @@ class AetherCommandRenderer {
             
             if (this.frameCount % skipRate === 0) {
                 // Brightness check
-                if (this.frameCount % 60 === 0) {
+                if (this.frameCount % 90 === 0) {
                     this.estimateBrightness();
                     // If extremely dark, try to bump res once
-                    if (this.currentBrightness < 20 && this.video.videoWidth < 640) {
-                        this.log("System: Low light detected. Upscaling sensor resolution...");
+                    if (this.currentBrightness < 25 && this.video.videoWidth < 640) {
+                        this.log("Aether Vision: Boosting sensor resolution for low light...");
                         this.initCamera(true);
+                    } else if (this.currentBrightness > 50 && this.video.videoWidth >= 640) {
+                        // Scale back down to save power if light is OK
+                        this.initCamera(false);
                     }
                 }
 
