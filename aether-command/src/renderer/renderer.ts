@@ -358,8 +358,10 @@ class AetherCommandRenderer {
             if (!reqKey) {
                 text.innerText = 'ARMED & TRACKING';
             } else {
-                const keyName = keySel ? keySel.options[keySel.selectedIndex].text : 'SHIFT+OPT+A';
-                text.innerText = active ? `ARMED (READY)` : `DISARMED (PRESS ${keyName.toUpperCase()})`;
+                const modifier = keySel ? keySel.value : 'Option';
+                const keyName = modifier === 'Command' ? 'CMD+SHIFT+A' : 
+                                modifier === 'Option' ? 'OPT+SHIFT+A' : 'CTRL+SHIFT+A';
+                text.innerText = active ? `ARMED (READY)` : `DISARMED (PRESS ${keyName})`;
             }
         }
     }
@@ -533,12 +535,14 @@ class AetherCommandRenderer {
             if (swipeSelect) {
                 if (targetProfile === 'browser') swipeSelect.value = 'BROWSER';
                 else if (targetProfile === 'media') swipeSelect.value = 'MEDIA';
+                else if (targetProfile === 'coding') swipeSelect.value = 'BROWSER';
                 else swipeSelect.value = 'SPACES';
                 swipeSelect.dispatchEvent(new Event('change'));
             }
 
-            this.log(`Smart Profile: Auto-switched to ${targetProfile.toUpperCase()} for ${appName}`);
-            this.audio.playSuccess();
+            this.log(`Smart Profile: Optimized for ${appName}`);
+            this.vfx.createBurst(this.canvas.width / 2, this.canvas.height / 2, 50, '#ff00ff'); // Feedback burst
+            this.audio.playSuccess(0.5, 0.9);
         }
     }
 

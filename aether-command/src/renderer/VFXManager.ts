@@ -49,23 +49,25 @@ export class VFXManager {
                 const alpha = Math.max(0, p.life);
                 this.ctx.beginPath();
                 this.ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
-                this.ctx.fillStyle = this.hexToRgba(this.baseColor, alpha);
+                this.ctx.fillStyle = this.hexToRgba(p.color || this.baseColor, alpha);
                 this.ctx.fill();
             });
             this.ctx.restore();
         }
     }
 
-    public createBurst(x: number, y: number, count: number = 20) {
+    public createBurst(x: number, y: number, count: number = 20, color?: string) {
         if (this.particles.length >= this.MAX_PARTICLES) return;
         const actualCount = Math.min(count, this.MAX_PARTICLES - this.particles.length);
+        const burstColor = color || this.baseColor;
         for (let i = 0; i < actualCount; i++) {
             this.particles.push({
                 x, y,
                 vx: (Math.random() - 0.5) * 10,
                 vy: (Math.random() - 0.5) * 10,
                 size: Math.random() * 6 + 2,
-                life: 1.0
+                life: 1.0,
+                color: burstColor
             });
         }
     }
