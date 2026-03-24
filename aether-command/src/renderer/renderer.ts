@@ -145,6 +145,8 @@ class AetherCommandRenderer {
     private isPinchHeld: boolean = false;
     private isFistHeld: boolean = false;
     private lastLaserAction: 'draw' | 'move' | 'clear' = 'move';
+    private lastX: number = 0;
+    private lastY: number = 0;
 
     constructor() {
         this.video = document.getElementById('webcam') as HTMLVideoElement;
@@ -845,26 +847,30 @@ class AetherCommandRenderer {
                 // Clamp bounds
                 normX = Math.max(0, Math.min(1, normX));
                 normY = Math.max(0, Math.min(1, normY));
-
                 const targetX = normX * this.screenWidth;
                 const targetY = normY * this.screenHeight;
 
-                if (this.isLaserModeActive) {
-                    const isDrawing = state.isPinching;
-                    const isClearing = state.isFist;
-                    
-                    if (isClearing) {
-                        if (!this.isFistHeld) {
-                            (window.electronAPI as any).drawLaserPoint(targetX, targetY, false, true);
-                            this.isFistHeld = true;
-                            this.log("Laser: Canvas Cleared");
+                // Neural Deadzone: Filter out micro-jitters (< 2px)
+                if (Math.abs(targetX - this.lastX) > 2 || Math.abs(targetY - this.lastY) > 2) {
+                    if (isLaserTracking) {
+                        const isDrawing = state.isPinching;
+                        const isClearing = state.isFist;
+                        
+                        if (isClearing) {
+                            if (!this.isFistHeld) {
+                                (window.electronAPI as any).drawLaserPoint(targetX, targetY, false, true);
+                                this.isFistHeld = true;
+                                this.log("Laser: Canvas Cleared");
+                            }
+                        } else {
+                            this.isFistHeld = false;
+                            (window.electronAPI as any).drawLaserPoint(targetX, targetY, isDrawing, false);
                         }
                     } else {
-                        this.isFistHeld = false;
-                        (window.electronAPI as any).drawLaserPoint(targetX, targetY, isDrawing, false);
+                        (window.electronAPI as any).mouseMove(targetX, targetY);
                     }
-                } else {
-                    (window.electronAPI as any).mouseMove(targetX, targetY);
+                    this.lastX = targetX;
+                    this.lastY = targetY;
                 }
                 
                 this.lastMouseUpdate = now;
@@ -882,17 +888,21 @@ class AetherCommandRenderer {
                     const targetX = normX * this.screenWidth;
                     const targetY = normY * this.screenHeight;
                     
-                    const isDrawing = state.isPinching;
-                    const isClearing = state.isFist;
-                    
-                    if (isClearing) {
-                        if (!this.isFistHeld) {
-                            (window.electronAPI as any).drawLaserPoint(targetX, targetY, false, true);
-                            this.isFistHeld = true;
+                    if (Math.abs(targetX - this.lastX) > 2 || Math.abs(targetY - this.lastY) > 2) {
+                        const isDrawing = state.isPinching;
+                        const isClearing = state.isFist;
+                        
+                        if (isClearing) {
+                            if (!this.isFistHeld) {
+                                (window.electronAPI as any).drawLaserPoint(targetX, targetY, false, true);
+                                this.isFistHeld = true;
+                            }
+                        } else {
+                            this.isFistHeld = false;
+                            (window.electronAPI as any).drawLaserPoint(targetX, targetY, isDrawing, false);
                         }
-                    } else {
-                        this.isFistHeld = false;
-                        (window.electronAPI as any).drawLaserPoint(targetX, targetY, isDrawing, false);
+                        this.lastX = targetX;
+                        this.lastY = targetY;
                     }
                     this.lastMouseUpdate = now;
                 }
