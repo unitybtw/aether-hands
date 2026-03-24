@@ -348,10 +348,19 @@ class AetherCommandRenderer {
     private updateActivationStatusUI(active: boolean) {
         const dot = document.getElementById('activation-dot');
         const text = document.getElementById('activation-text');
+        const keySel = document.getElementById('setting-activation-key') as HTMLSelectElement;
+        
         if (dot && text) {
             dot.style.background = active ? '#00e5ff' : '#ff4b2b';
             dot.style.boxShadow = active ? '0 0 10px #00e5ff' : '0 0 10px #ff4b2b';
-            text.innerText = active ? 'SYSTEM ARMED (READY)' : 'SYSTEM DISARMED (PRESS SHIFT+OPT+A)';
+            
+            const reqKey = (document.getElementById('setting-require-key') as HTMLInputElement)?.checked;
+            if (!reqKey) {
+                text.innerText = 'ARMED & TRACKING';
+            } else {
+                const keyName = keySel ? keySel.options[keySel.selectedIndex].text : 'SHIFT+OPT+A';
+                text.innerText = active ? `ARMED (READY)` : `DISARMED (PRESS ${keyName.toUpperCase()})`;
+            }
         }
     }
 
@@ -407,14 +416,14 @@ class AetherCommandRenderer {
     }
 
     private setupEventListeners() {
-        const uiElements = [
+        const uiIds = [
             'setting-smoothing', 'setting-autolaunch', 
             'setting-require-key', 'setting-activation-key',
             'setting-sensitivity', 'setting-theme', 'setting-hand-preference',
-            'setting-cursor-speed', // Added
+            'setting-cursor-speed', 'setting-vfx-extra', 'setting-battery-saver',
             'map-pinch', 'map-fist', 'map-palm', 'map-peace', 'map-swipe'
         ];
-        uiElements.forEach(id => {
+        uiIds.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', () => {
                 if (id === 'setting-require-key') this.updateActivationUIState((el as HTMLInputElement).checked);
@@ -518,6 +527,16 @@ class AetherCommandRenderer {
         if (profileSelect.value !== targetProfile) {
             profileSelect.value = targetProfile;
             profileSelect.dispatchEvent(new Event('change'));
+            
+            // Auto-update SWIPE mappings based on profile
+            const swipeSelect = document.getElementById('map-swipe') as HTMLSelectElement;
+            if (swipeSelect) {
+                if (targetProfile === 'browser') swipeSelect.value = 'BROWSER';
+                else if (targetProfile === 'media') swipeSelect.value = 'MEDIA';
+                else swipeSelect.value = 'SPACES';
+                swipeSelect.dispatchEvent(new Event('change'));
+            }
+
             this.log(`Smart Profile: Auto-switched to ${targetProfile.toUpperCase()} for ${appName}`);
             this.audio.playSuccess();
         }
@@ -726,10 +745,13 @@ class AetherCommandRenderer {
             }
         }
         this.frameCount++;
+        // Background Persistence: Always loop, but slow down if hidden to save CPU
         if (this.isVisible) {
             requestAnimationFrame(() => this.loop());
         } else {
-            setTimeout(() => this.loop(), 33); // ~30FPS in background
+            // Even if "hidden", we MUST keep tracking for gestures to work globally.
+            // 20-30 FPS is enough for background gestures.
+            setTimeout(() => this.loop(), 33); 
         }
     }
 

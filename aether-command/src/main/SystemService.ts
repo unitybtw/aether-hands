@@ -110,6 +110,18 @@ export class SystemService {
             case 'BROWSER_TAB_PREV':
                 this.runAppleScript('tell application "System Events" to key code 48 using {control down, shift down}');
                 break;
+            case 'SPACE_NEXT':
+                this.runAppleScript('tell application "System Events" to key code 124 using control down');
+                break;
+            case 'SPACE_PREV':
+                this.runAppleScript('tell application "System Events" to key code 123 using control down');
+                break;
+            case 'TAB_NEXT':
+                this.runAppleScript('tell application "System Events" to key code 48 using control down');
+                break;
+            case 'TAB_PREV':
+                this.runAppleScript('tell application "System Events" to key code 48 using {control down, shift down}');
+                break;
             default:
                 if (action.startsWith('SCRIPT:')) {
                     this.runAppleScript(action.substring(7));

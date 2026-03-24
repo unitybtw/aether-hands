@@ -130,7 +130,8 @@ const createWindow = () => {
     
     mainWindow.on('hide', () => {
         app.dock?.hide();
-        mainWindow?.webContents.send('window-visibility', false);
+        // REMOVED: Do not send visibility false, we need background tracking
+        // mainWindow?.webContents.send('window-visibility', false);
     });
 };
 
