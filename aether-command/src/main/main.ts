@@ -4,7 +4,6 @@ import * as path from 'path';
 import { SettingsManager } from './SettingsManager';
 import { SystemService } from './SystemService';
 // Optimization Flags
-app.commandLine.appendSwitch('disable-http-cache');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128'); // Restrict V8 heap for background process
 app.commandLine.appendSwitch('enable-accelerated-mjpeg-decode');
