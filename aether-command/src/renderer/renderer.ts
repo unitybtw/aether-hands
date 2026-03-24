@@ -1074,10 +1074,13 @@ class AetherCommandRenderer {
                 } else {
                     const now = performance.now();
                     if (now - this.lastMouseUpdate > 16) {
-                        let normX = 1 - state.lastWristPos.x;
-                        let normY = state.lastWristPos.y;
-                        normX = 0.5 + (normX - 0.5) * this.cursorSpeed;
-                        normY = 0.5 + (normY - 0.5) * this.cursorSpeed;
+                        const zNorm = Math.min(-0.2, Math.max(-1.0, state.pointerPos.z));
+                        const depthScale = 1.0 + (Math.abs(zNorm) - 0.2) * 1.5;
+                        
+                        let normX = 1 - state.pointerPos.x;
+                        let normY = state.pointerPos.y;
+                        normX = 0.5 + (normX - 0.5) * this.cursorSpeed * depthScale;
+                        normY = 0.5 + (normY - 0.5) * this.cursorSpeed * depthScale;
                         normX = Math.max(0, Math.min(1, normX));
                         normY = Math.max(0, Math.min(1, normY));
 
