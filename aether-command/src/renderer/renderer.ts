@@ -1086,7 +1086,14 @@ class AetherCommandRenderer {
 
                         const targetX = normX * this.screenWidth;
                         const targetY = normY * this.screenHeight;
-                        (window.electronAPI as any).mouseDrag(targetX, targetY);
+
+                        // Neural Deadzone: Distinguish intentional DRAG vs slight tremor during CLICK
+                        if (Math.abs(targetX - this.lastX) > 4 || Math.abs(targetY - this.lastY) > 4) {
+                            (window.electronAPI as any).mouseDrag(targetX, targetY);
+                            this.lastX = targetX;
+                            this.lastY = targetY;
+                        }
+
                         this.lastMouseUpdate = now;
                     }
                 }
