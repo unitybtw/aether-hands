@@ -297,7 +297,7 @@ ipcMain.on('gesture-action', async (_event, action) => {
     if (['PLAY_PAUSE', 'NEXT_TRACK', 'PREV_TRACK'].includes(action)) {
         await new Promise(r => setTimeout(r, 400));
         hudSubtitle = await systemService.getMediaInfo();
-    } else if (['VOLUME_UP', 'VOLUME_DOWN', 'MUTE_TOGGLE'].includes(action)) {
+    } else if (['VOLUME_UP', 'VOLUME_DOWN', 'MUTE_TOGGLE', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'MIC_MUTE'].includes(action)) {
         await new Promise(r => setTimeout(r, 200));
         hudSubtitle = await systemService.getVolumeInfo();
     }

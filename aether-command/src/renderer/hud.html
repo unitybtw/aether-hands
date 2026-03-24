@@ -104,9 +104,12 @@
 </head>
 <body>
     <div id="hud-container">
+        <div class="scanline"></div>
         <div class="glow-ring"></div>
-        <div class="icon" id="hud-icon">✨</div>
-        <div class="label" id="hud-label">Init</div>
+        <div id="hud-content" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            <div class="icon" id="hud-icon">⚡</div>
+            <div class="label" id="hud-label">Init</div>
+        </div>
     </div>
 
     <script>
@@ -119,54 +122,52 @@
             'PLAY_PAUSE': { icon: '⏯️', label: 'Play / Pause' },
             'NEXT_TRACK': { icon: '⏭️', label: 'Next Track' },
             'PREV_TRACK': { icon: '⏮️', label: 'Previous Track' },
-            'MUTE_TOGGLE': { icon: '🔇', label: 'System Mute' },
+            'MUTE_TOGGLE': { icon: '🔇', label: 'Mute' },
             'VOLUME_UP': { icon: '🔊', label: 'Volume Up' },
             'VOLUME_DOWN': { icon: '🔉', label: 'Volume Down' },
             'MISSION_CONTROL': { icon: '🖥️', label: 'Mission Control' },
             'LAUNCHPAD': { icon: '🚀', label: 'Launchpad' },
-            'SHOW_DESKTOP': { icon: '🖼️', label: 'Desktop' },
+            'SHOW_DESKTOP': { icon: '🖼️', label: 'Show Desktop' },
             'SPACES': { icon: '↔️', label: 'Switch Space' },
-            'SPACE_LEFT': { icon: '⬅️', label: 'Desktop Left' },
-            'SPACE_RIGHT': { icon: '➡️', label: 'Desktop Right' },
+            'SPACE_LEFT': { icon: '⬅️', label: 'Space Left' },
+            'SPACE_RIGHT': { icon: '➡️', label: 'Space Right' },
             'BRIGHTNESS_UP': { icon: '☀️', label: 'Brightness Up' },
             'BRIGHTNESS_DOWN': { icon: '🔅', label: 'Brightness Down' },
-            'LOCK_SCREEN': { icon: '🔒', label: 'Lock Screen' },
+            'LOCK_SCREEN': { icon: '🔒', label: 'Locked' },
             'MIC_MUTE': { icon: '🎙️', label: 'Mic Toggle' },
             'LAUNCH_SAFARI': { icon: '🌐', label: 'Safari' },
             'LAUNCH_CHROME': { icon: '🌍', label: 'Chrome' },
             'LAUNCH_SPOTIFY': { icon: '🎵', label: 'Spotify' },
             'LAUNCH_VSCODE': { icon: '💻', label: 'VS Code' },
             'LAUNCH_TERMINAL': { icon: '⌨️', label: 'Terminal' },
-            'BROWSER_BACK': { icon: '⏪', label: 'Go Back' },
-            'BROWSER_FORWARD': { icon: '⏩', label: 'Go Forward' },
+            'BROWSER_BACK': { icon: '⏪', label: 'Back' },
+            'BROWSER_FORWARD': { icon: '⏩', label: 'Forward' },
             'BROWSER_TAB_NEXT': { icon: '➡️', label: 'Next Tab' },
             'BROWSER_TAB_PREV': { icon: '⬅️', label: 'Prev Tab' },
             'LASER_POINTER': { icon: '✨', label: 'Air Draw' }
         };
 
         window.electronAPI.onShowHud((action, subtitle) => {
-            const asset = GESTURE_ASSETS[action] || { icon: '⚡', label: action };
+            const asset = GESTURE_ASSETS[action] || { icon: '⚡', label: action.replace('_', ' ') };
             icon.innerText = asset.icon;
             
             if (subtitle) {
                 const maxLen = 35;
-                const trunc = subtitle.length > maxLen ? subtitle.substring(0, maxLen - 3) + '...' : subtitle;
-                label.innerHTML = `${asset.label}<br><span style="font-size: 0.75em; color: #fff; opacity: 0.8; font-weight: 400; display: block; text-align: center; margin-top: 8px; letter-spacing: 0.5px; text-transform: none; text-shadow: none;">${trunc}</span>`;
+                const trunc = (subtitle.length > maxLen) ? subtitle.substring(0, maxLen - 3) + '...' : subtitle;
+                label.innerHTML = `<span style="display:block; margin-bottom:4px;">${asset.label}</span><span style="font-size: 0.8em; color: rgba(255,255,255,0.7); font-weight: 400; text-transform: none; letter-spacing: 0px;">${trunc}</span>`;
             } else {
                 label.innerHTML = asset.label;
             }
 
             hud.classList.remove('show');
-            void hud.offsetWidth; // Force reflow
+            void hud.offsetWidth; 
             hud.classList.add('show');
             
             clearTimeout(hideTimeout);
             hideTimeout = setTimeout(() => {
                 hud.classList.remove('show');
-                setTimeout(() => {
-                    window.electronAPI.hideHud();
-                }, 500); // Wait for CSS shrink animation
-            }, 1500);
+                setTimeout(() => window.electronAPI.hideHud(), 500);
+            }, 1200);
         });
     </script>
 </body>
