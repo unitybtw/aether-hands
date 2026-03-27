@@ -346,6 +346,7 @@ class AetherCommandRenderer {
 
     async initialize() {
         try {
+            // Priority 1: Instant UI Response
             const settings = await window.electronAPI.getSettings();
             this.updateUIFromSettings(settings);
             this.lerpAmount = settings.smoothing;
@@ -367,14 +368,33 @@ class AetherCommandRenderer {
                 });
             }
 
+            // Priority 2: Instant Feed Vision
             const hasCamera = await this.initCamera();
             if (!hasCamera) return;
 
-            await this.tracker.initialize();
+            // UNBLOCK: Start UI loop immediately after camera
             this.isRunning = true;
-            this.loop();
+            this.loop(); 
+
+            // Priority 3: Asynchronous Neural Core Loading
+            if (this.uiElements['quality-text']) {
+                this.uiElements['quality-text'].innerText = 'INITIALIZING CORE...';
+                this.uiElements['quality-text'].style.color = 'var(--accent-primary)';
+            }
+            
+            this.log('System: Initializing Aether Neural Core (MediaPipe V3)...');
+            await this.tracker.initialize();
+            
+            this.log('System: Neural Core Ready. Hand tracking engaged.');
+            if (this.uiElements['quality-text']) {
+               this.uiElements['quality-text'].innerText = 'CORE READY';
+            }
         } catch (err: any) {
             this.log(`Critical Error: ${err.message}`);
+            if (this.uiElements['quality-text']) {
+                this.uiElements['quality-text'].innerText = 'CORE ERROR';
+                this.uiElements['quality-text'].style.color = '#ff4b2b';
+            }
         }
     }
 
@@ -797,6 +817,17 @@ class AetherCommandRenderer {
                     } else if (this.currentBrightness > 50 && this.video.videoWidth >= 640) {
                         // Scale back down to save power if light is OK
                         this.initCamera(false);
+                    }
+                }
+
+                // Show loading pulse if tracker isn't ready
+                if (!(this.tracker as any).isInitialized) {
+                    if (this.frameCount % 30 === 0) {
+                        this.log("Neural Core: Syncing with MediaPipe CDN...");
+                    }
+                    this.updateQualityUI(0, false);
+                    if (this.uiElements['quality-text']) {
+                        this.uiElements['quality-text'].innerText = this.frameCount % 20 < 10 ? 'CORE WARM-UP' : 'SYNCING...';
                     }
                 }
 
