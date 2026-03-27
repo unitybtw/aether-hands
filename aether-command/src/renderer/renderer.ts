@@ -139,6 +139,7 @@ class AetherCommandRenderer {
     private signalPillEl: HTMLElement | null = null;
     private settingElements: Record<string, HTMLInputElement | HTMLSelectElement> = {};
     private saveTimeout: any = null;
+    private isUIPriority: boolean = false;
 
     private readonly SUSPEND_TIMEOUT_MS = 300000;
     private currentBrightness: number = 0;
@@ -498,7 +499,14 @@ class AetherCommandRenderer {
         // Initialize Camera List
         this.updateCameraList();
 
-        // Log Search
+        // UI Throttling Listeners
+        const settingsPanel = document.getElementById('settings-panel');
+        if (settingsPanel) {
+            settingsPanel.addEventListener('mouseenter', () => this.isUIPriority = true);
+            settingsPanel.addEventListener('mouseleave', () => this.isUIPriority = false);
+        }
+
+        // Global key listeners ... (next line was search.addEventListener)
         const search = document.getElementById('log-search') as HTMLInputElement;
         if (search) {
             search.addEventListener('input', () => {
@@ -812,8 +820,10 @@ class AetherCommandRenderer {
         this.vfx.update();
 
         try {
-            let skipRate = this.isSuspended ? 4 : 1; // 15 FPS if suspended, 60 FPS normal
-            // if (!this.isVisible) skipRate = 2; 
+            // Priority System: Skip frames if user is interacting with UI or suspended
+            let skipRate = 1;
+            if (this.isSuspended) skipRate = 4;
+            else if (this.isUIPriority) skipRate = 2; // Yield 50% CPU to UI during settings adjustment
             
             if (this.frameCount % skipRate === 0) {
                 // Brightness check
