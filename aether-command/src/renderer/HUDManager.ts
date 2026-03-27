@@ -12,7 +12,12 @@ export class HUDManager {
     private warnings: Map<string, HTMLElement> = new Map();
     private logEl: HTMLElement | null = null;
     private accentColor: string = "#00e5ff";
+    private colorCache: Map<string, string> = new Map();
 
+    /**
+     * @param stabilityCanvas The canvas element used for drawing telemetry graphs
+     * @param logElement The container for real-time system logs
+     */
     constructor(stabilityCanvas: HTMLCanvasElement, logElement: HTMLElement) {
         this.canvas = stabilityCanvas;
         this.ctx = this.canvas.getContext('2d')!;
@@ -111,6 +116,9 @@ export class HUDManager {
     }
 
     private hexToRgba(hex: string, alpha: number): string {
+        const cacheKey = `${hex}_${alpha}`;
+        if (this.colorCache.has(cacheKey)) return this.colorCache.get(cacheKey)!;
+
         let r = 0, g = 0, b = 0;
         if (hex.length === 4) {
             r = parseInt(hex[1] + hex[1], 16);
@@ -121,6 +129,8 @@ export class HUDManager {
             g = parseInt(hex.substring(3, 5), 16);
             b = parseInt(hex.substring(5, 7), 16);
         }
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        const rgba = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        this.colorCache.set(cacheKey, rgba);
+        return rgba;
     }
 }
