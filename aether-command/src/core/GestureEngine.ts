@@ -21,6 +21,10 @@ export interface GestureState {
 export class GestureEngine {
     private lastWristPos: { x: number, y: number } | null = null;
     private velocity = { x: 0, y: 0 };
+    private stateBuffer: Record<string, number> = { pinch: 0, fist: 0, palm: 0, peace: 0 };
+    private lastSwipeTime: number = 0;
+    private readonly BUFFER_THRESHOLD = 3; // Stable for 3 frames to trigger state change
+    private readonly SWIPE_COOLDOWN = 500; // ms
 
     public process(landmarks: any[], customGestures: any[] = []): GestureState {
         const wrist = landmarks[0];
@@ -52,34 +56,51 @@ export class GestureEngine {
         // Refined Peace: Index & Middle up, others down
         const isPeace = !isIndexFolded && !isMiddleFolded && isRingFolded && isPinkyFolded && !isFist;
 
-        // 2. Pinch Detection
+        // 2. Pinch Detection (Depth Compensated)
         const rawPinchDist = this.calculateDistance(thumbTip, indexTip);
         const normPinchDist = norm(rawPinchDist);
-        const isPinching = (normPinchDist < 0.45) && !isFist && !isPeace;
+        // Z is negative, so closer is smaller (e.g. -0.8), far is larger (e.g. -0.2)
+        // Adjust threshold slightly: closer hands need slightly more gap to "pinch" to avoid false positives
+        const pinchThreshold = 0.42 + Math.abs(wrist.z) * 0.1; 
+        
+        const isPinchingRaw = (normPinchDist < pinchThreshold) && !isFist && !isPeace;
         const pinchStrength = Math.max(0, 1 - (normPinchDist / 0.8));
 
-        const isOpenPalm = !isIndexFolded && !isMiddleFolded && !isRingFolded && !isPinkyFolded && !isPinching && !isFist && !isPeace;
+        const isOpenPalmRaw = !isIndexFolded && !isMiddleFolded && !isRingFolded && !isPinkyFolded && !isPinchingRaw && !isFist && !isPeace;
+
+        // 3. Buffer State for Neural Stability
+        const updateState = (key: string, raw: boolean) => {
+            if (raw) this.stateBuffer[key] = Math.min(this.BUFFER_THRESHOLD, this.stateBuffer[key] + 1);
+            else this.stateBuffer[key] = Math.max(0, this.stateBuffer[key] - 1);
+            return this.stateBuffer[key] === this.BUFFER_THRESHOLD;
+        };
+
+        const isPinching = updateState('pinch', isPinchingRaw);
+        const isFistDebounced = updateState('fist', isFist);
+        const isPeaceDebounced = updateState('peace', isPeace);
+        const isOpenPalm = updateState('palm', isOpenPalmRaw);
 
         let pinchStartPos = null;
         if (isPinching) {
             pinchStartPos = { x: (thumbTip.x + indexTip.x) / 2, y: (thumbTip.y + indexTip.y) / 2 };
         }
 
-        // 3. Velocity & Directional Swipe
+        // Swipe System with Temporal Cooldown
         let swipeDirection: 'left' | 'right' | 'up' | 'down' | null = null;
-        if (this.lastWristPos) {
+        const now = Date.now();
+        if (this.lastWristPos && now - this.lastSwipeTime > this.SWIPE_COOLDOWN) {
             this.velocity.x = wrist.x - this.lastWristPos.x;
             this.velocity.y = wrist.y - this.lastWristPos.y;
             
-            const thresh = 0.2 * handScale; 
-            if (this.velocity.x > thresh) swipeDirection = 'left';
-            else if (this.velocity.x < -thresh) swipeDirection = 'right';
-            else if (this.velocity.y < -thresh) swipeDirection = 'up';
-            else if (this.velocity.y > thresh) swipeDirection = 'down';
+            const thresh = 0.22 * handScale; 
+            if (this.velocity.x > thresh) { swipeDirection = 'left'; this.lastSwipeTime = now; }
+            else if (this.velocity.x < -thresh) { swipeDirection = 'right'; this.lastSwipeTime = now; }
+            else if (this.velocity.y < -thresh) { swipeDirection = 'up'; this.lastSwipeTime = now; }
+            else if (this.velocity.y > thresh) { swipeDirection = 'down'; this.lastSwipeTime = now; }
             
             this.lastWristPos.x = wrist.x;
             this.lastWristPos.y = wrist.y;
-        } else {
+        } else if (!this.lastWristPos) {
             this.lastWristPos = { x: wrist.x, y: wrist.y };
         }
 
@@ -162,5 +183,7 @@ export class GestureEngine {
     public reset() {
         this.lastWristPos = null;
         this.velocity = { x: 0, y: 0 };
+        this.stateBuffer = { pinch: 0, fist: 0, palm: 0, peace: 0 };
+        this.lastSwipeTime = 0;
     }
 }

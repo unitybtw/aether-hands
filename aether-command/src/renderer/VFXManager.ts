@@ -81,19 +81,23 @@ export class VFXManager {
         const wx = (1 - wrist.x) * width;
         const wy = wrist.y * height;
 
-        // Scanning Glow (Optional)
+        // Scanning Glow & Volumetric Shadow
         if (this.extraVfx) {
-            const gradient = this.ctx.createRadialGradient(wx, wy, 20, wx, wy, 150);
-            gradient.addColorStop(0, this.hexToRgba(mainColor, 0.15));
+            const gradient = this.ctx.createRadialGradient(wx, wy, 20, wx, wy, 180);
+            gradient.addColorStop(0, this.hexToRgba(mainColor, 0.25));
+            gradient.addColorStop(0.5, this.hexToRgba(mainColor, 0.05));
             gradient.addColorStop(1, 'transparent');
             this.ctx.fillStyle = gradient;
             this.ctx.fillRect(0, 0, width, height);
 
-            this.ctx.shadowBlur = 4;
+            this.ctx.shadowBlur = 10;
             this.ctx.shadowColor = mainColor;
         }
-        this.ctx.strokeStyle = this.hexToRgba(mainColor, 0.6);
-        this.ctx.lineWidth = 2;
+
+        this.ctx.strokeStyle = this.hexToRgba(mainColor, 0.7);
+        this.ctx.lineWidth = 2.5;
+        this.ctx.lineCap = "round";
+        this.ctx.lineJoin = "round";
 
         this.CONNECTIONS.forEach(path => {
             this.ctx.beginPath();
@@ -147,10 +151,20 @@ export class VFXManager {
             this.ctx.fillRect(x - 2, y - 2, 4, 4);
 
             if (this.extraVfx && [4, 8, 12, 16, 20].includes(idx)) {
-                this.ctx.strokeStyle = this.hexToRgba(mainColor, 0.8);
-                this.ctx.lineWidth = 1;
+                // Energy Orb Rendering
+                const radial = this.ctx.createRadialGradient(x, y, 0, x, y, 8);
+                radial.addColorStop(0, "#fff");
+                radial.addColorStop(0.4, this.hexToRgba(mainColor, 0.8));
+                radial.addColorStop(1, "transparent");
+                
+                this.ctx.fillStyle = radial;
                 this.ctx.beginPath();
-                this.ctx.arc(x, y, 7, 0, Math.PI * 2);
+                this.ctx.arc(x, y, 9, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Outer Ring
+                this.ctx.strokeStyle = this.hexToRgba(mainColor, 0.4);
+                this.ctx.lineWidth = 1;
                 this.ctx.stroke();
             }
         });
